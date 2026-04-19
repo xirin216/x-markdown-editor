@@ -49,9 +49,13 @@ type LineJump = {
 
 const EDITOR_WIDTH_STORAGE_KEY = "x-markdown-editor.editor-width";
 const EDITOR_WIDTH_MODE_STORAGE_KEY = "x-markdown-editor.editor-width-mode";
+const EDITOR_FONT_SIZE_STORAGE_KEY = "x-markdown-editor.editor-font-size";
 const MIN_EDITOR_WIDTH = 900;
 const MAX_EDITOR_WIDTH = 1800;
 const DEFAULT_EDITOR_WIDTH = 1240;
+const MIN_EDITOR_FONT_SIZE = 13;
+const MAX_EDITOR_FONT_SIZE = 22;
+const DEFAULT_EDITOR_FONT_SIZE = 16;
 
 type EditorWidthMode = "bounded" | "full";
 
@@ -87,6 +91,7 @@ function App() {
     readStoredEditorWidthMode,
   );
   const [editorWidth, setEditorWidth] = useState(readStoredEditorWidth);
+  const [editorFontSize, setEditorFontSize] = useState(readStoredEditorFontSize);
 
   const editorHostRef = useRef<HTMLDivElement>(null);
   const vditorRef = useRef<Vditor | null>(null);
@@ -125,12 +130,14 @@ function App() {
       : "No file open";
   const activeWidthLabel =
     editorWidthMode === "full" ? "Fit window" : `${editorWidth}px`;
+  const activeFontLabel = `${editorFontSize}px`;
   const editorPaneStyle = {
     "--editor-content-width":
       editorWidthMode === "full"
         ? "calc(100% - 24px)"
         : `${clampEditorWidth(editorWidth)}px`,
     "--editor-content-padding": editorWidthMode === "full" ? "18px" : "44px",
+    "--editor-font-size": `${clampEditorFontSize(editorFontSize)}px`,
   } as CSSProperties;
 
   useEffect(() => {
@@ -147,6 +154,13 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem(EDITOR_WIDTH_MODE_STORAGE_KEY, editorWidthMode);
   }, [editorWidthMode]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      EDITOR_FONT_SIZE_STORAGE_KEY,
+      String(clampEditorFontSize(editorFontSize)),
+    );
+  }, [editorFontSize]);
 
   useEffect(() => {
     if (!editorHostRef.current || vditorRef.current) {
@@ -1046,6 +1060,14 @@ function App() {
     setEditorWidth(DEFAULT_EDITOR_WIDTH);
   }
 
+  function handleEditorFontSizeChange(event: ChangeEvent<HTMLInputElement>) {
+    setEditorFontSize(clampEditorFontSize(Number(event.currentTarget.value)));
+  }
+
+  function resetEditorFontSize() {
+    setEditorFontSize(DEFAULT_EDITOR_FONT_SIZE);
+  }
+
   const dragCopyText =
     dragState.acceptedKind === "folder"
       ? "Drop the folder to open it as a workspace."
@@ -1200,7 +1222,20 @@ function App() {
                 />
                 <strong>{editorWidthMode === "full" ? "Window" : `${editorWidth}px`}</strong>
               </label>
-              <div className="view-options" aria-label="Editor width mode">
+              <label className="font-slider">
+                <span>Text size</span>
+                <input
+                  type="range"
+                  min={MIN_EDITOR_FONT_SIZE}
+                  max={MAX_EDITOR_FONT_SIZE}
+                  step={1}
+                  value={editorFontSize}
+                  onChange={handleEditorFontSizeChange}
+                  aria-label="Adjust editor text size"
+                />
+                <strong>{activeFontLabel}</strong>
+              </label>
+              <div className="view-options" aria-label="Editor controls">
                 <button
                   type="button"
                   className={editorWidthMode === "bounded" ? "is-active" : undefined}
@@ -1216,7 +1251,10 @@ function App() {
                   Fit window
                 </button>
                 <button type="button" onClick={resetEditorWidth}>
-                  Reset
+                  Width reset
+                </button>
+                <button type="button" onClick={resetEditorFontSize}>
+                  Text reset
                 </button>
               </div>
             </div>
@@ -1330,6 +1368,7 @@ function App() {
         <footer className="app-statusbar">
           <span>{statusMessage}</span>
           <span>Width: {activeWidthLabel}</span>
+          <span>Text: {activeFontLabel}</span>
           <span>{sidebarState.activePanel === "search" ? "Search panel" : "Outline panel"}</span>
           <span>Ctrl+O Open</span>
           <span>Ctrl+Shift+O Folder</span>
@@ -1393,6 +1432,10 @@ function clampEditorWidth(value: number) {
   return Math.min(MAX_EDITOR_WIDTH, Math.max(MIN_EDITOR_WIDTH, value));
 }
 
+function clampEditorFontSize(value: number) {
+  return Math.min(MAX_EDITOR_FONT_SIZE, Math.max(MIN_EDITOR_FONT_SIZE, value));
+}
+
 function readStoredEditorWidth() {
   if (typeof window === "undefined") {
     return DEFAULT_EDITOR_WIDTH;
@@ -1414,6 +1457,19 @@ function readStoredEditorWidthMode(): EditorWidthMode {
   return window.localStorage.getItem(EDITOR_WIDTH_MODE_STORAGE_KEY) === "full"
     ? "full"
     : "bounded";
+}
+
+function readStoredEditorFontSize() {
+  if (typeof window === "undefined") {
+    return DEFAULT_EDITOR_FONT_SIZE;
+  }
+
+  const stored = Number(window.localStorage.getItem(EDITOR_FONT_SIZE_STORAGE_KEY));
+  if (Number.isNaN(stored)) {
+    return DEFAULT_EDITOR_FONT_SIZE;
+  }
+
+  return clampEditorFontSize(stored);
 }
 
 export default App;

@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
   color: #1d2736;
-  background-color: #edf2f7;
+  background-color: #ffffff;
   font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.6;
@@ -10,18 +10,19 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --app-bg: #edf2f7;
-  --panel-bg: rgba(255, 255, 255, 0.9);
-  --sidebar-bg: rgba(247, 250, 253, 0.94);
-  --card-bg: rgba(255, 255, 255, 0.95);
+  --app-bg: #ffffff;
+  --panel-bg: #ffffff;
+  --sidebar-bg: #ffffff;
+  --card-bg: #ffffff;
   --editor-bg: #ffffff;
-  --editor-soft: #f7f9fc;
-  --editor-rail: #fcfdff;
+  --editor-soft: #ffffff;
+  --editor-rail: #ffffff;
   --editor-content-width: 920px;
   --editor-content-padding: 44px;
   --editor-content-block-padding: 30px;
   --editor-ir-block-padding: 22px;
   --editor-sv-block-padding: 12px;
+  --editor-font-size: 16px;
   --border: #d8e0ea;
   --border-strong: #c4cfde;
   --text: #1d2736;
@@ -31,8 +32,8 @@
   --accent-soft: #eef4ff;
   --warning: #c06a18;
   --danger: #d14343;
-  --shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
-  --editor-shadow: 0 24px 54px rgba(15, 23, 42, 0.08);
+  --shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  --editor-shadow: 0 12px 32px rgba(15, 23, 42, 0.05);
 }
 
 * {
@@ -50,9 +51,7 @@ body,
 
 body {
   min-width: 320px;
-  background:
-    radial-gradient(circle at top left, rgba(210, 225, 248, 0.66), transparent 33%),
-    linear-gradient(180deg, #f8fbff 0%, var(--app-bg) 100%);
+  background: #ffffff;
 }
 
 button,
@@ -76,7 +75,6 @@ button {
   flex-shrink: 0;
   border-right: 1px solid rgba(216, 224, 234, 0.9);
   background: var(--sidebar-bg);
-  backdrop-filter: blur(12px);
   transition: width 160ms ease;
 }
 
@@ -95,7 +93,7 @@ button {
   width: 56px;
   padding: 12px 8px;
   border-right: 1px solid rgba(216, 224, 234, 0.92);
-  background: rgba(244, 248, 252, 0.98);
+  background: #ffffff;
 }
 
 .sidebar-rail__button {
@@ -290,7 +288,6 @@ button {
 
 .app-header,
 .tabs,
-.editor-pane,
 .app-statusbar,
 .sync-banner {
   border: 1px solid var(--border);
@@ -309,8 +306,9 @@ button {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  border-radius: 24px;
-  background: transparent;
+  border: 0 !important;
+  border-radius: 0;
+  background: #ffffff;
   box-shadow: none;
   --editor-content-width: 920px;
   --editor-content-padding: 44px;
@@ -372,7 +370,7 @@ button {
   padding: 4px;
   border: 1px solid rgba(216, 224, 234, 0.94);
   border-radius: 999px;
-  background: rgba(239, 244, 255, 0.72);
+  background: #ffffff;
 }
 
 .view-options button {
@@ -398,7 +396,8 @@ button {
   box-shadow: 0 3px 10px rgba(37, 99, 235, 0.12);
 }
 
-.width-slider {
+.width-slider,
+.font-slider {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -406,24 +405,27 @@ button {
   padding: 6px 12px;
   border: 1px solid rgba(216, 224, 234, 0.94);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.82);
+  background: #ffffff;
 }
 
-.width-slider span {
+.width-slider span,
+.font-slider span {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
 }
 
-.width-slider strong {
+.width-slider strong,
+.font-slider strong {
   min-width: 64px;
   color: var(--text);
   font-size: 12px;
   text-align: right;
 }
 
-.width-slider input[type="range"] {
+.width-slider input[type="range"],
+.font-slider input[type="range"] {
   flex: 1;
   min-width: 120px;
   accent-color: var(--accent);
@@ -517,7 +519,7 @@ button {
 
 .tab:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.74);
+  background: #ffffff;
 }
 
 .tab--active {
@@ -558,10 +560,10 @@ button {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: var(--card-bg);
-  box-shadow: var(--editor-shadow);
+  border: 0 !important;
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .editor-meta {
@@ -571,7 +573,7 @@ button {
   gap: 12px;
   padding: 12px 18px;
   border-bottom: 1px solid rgba(216, 224, 234, 0.92);
-  background: rgba(250, 252, 255, 0.9);
+  background: #ffffff;
 }
 
 .editor-meta__text {
@@ -610,9 +612,7 @@ button {
   position: relative;
   flex: 1;
   min-height: 0;
-  background:
-    linear-gradient(180deg, rgba(247, 249, 252, 0.98) 0%, rgba(255, 255, 255, 1) 88%),
-    var(--editor-bg);
+  background: var(--editor-bg);
 }
 
 .vditor-host {
@@ -621,6 +621,10 @@ button {
 }
 
 .editor-instance .vditor {
+  --panel-background-color: #ffffff !important;
+  --toolbar-background-color: #ffffff !important;
+  --textarea-background-color: #ffffff !important;
+  --count-background-color: rgba(27, 31, 35, 0.05) !important;
   height: 100% !important;
   border: 0 !important;
   border-radius: 0 !important;
@@ -631,7 +635,7 @@ button {
 
 .editor-instance .vditor-toolbar {
   border-bottom: 1px solid #e8eef6 !important;
-  background: rgba(252, 253, 255, 0.96) !important;
+  background: #ffffff !important;
   padding: 8px 16px !important;
   opacity: 1 !important;
 }
@@ -648,9 +652,39 @@ button {
 
 .editor-instance .vditor-content {
   height: calc(100% - 49px) !important;
-  background:
-    linear-gradient(180deg, rgba(249, 251, 255, 0.86) 0%, rgba(255, 255, 255, 1) 18%),
-    var(--editor-bg) !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: #ffffff !important;
+  background-image: none !important;
+}
+
+.editor-instance .vditor-reset,
+.editor-instance .vditor-ir,
+.editor-instance .vditor-wysiwyg {
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-image: none !important;
+}
+
+.editor-instance .vditor-ir__node,
+.editor-instance .vditor-ir__preview,
+.editor-instance .vditor-reset > *,
+.editor-instance .vditor-ir > *,
+.editor-instance .vditor-wysiwyg > * {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.editor-instance .vditor-content .vditor-reset :not(pre):not(code),
+.editor-instance .vditor-content .vditor-ir :not(pre):not(code),
+.editor-instance .vditor-content .vditor-wysiwyg :not(pre):not(code) {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
 }
 
 .editor-instance .vditor-wysiwyg,
@@ -692,8 +726,17 @@ button {
 .editor-instance .vditor-ir {
   color: var(--text) !important;
   font-family: "Sitka Text", "Georgia", "Noto Serif KR", serif !important;
-  font-size: 18px !important;
+  font-size: var(--editor-font-size) !important;
   line-height: 1.78 !important;
+}
+
+.editor-instance .vditor-ir pre.vditor-reset,
+.editor-instance .vditor-wysiwyg pre.vditor-reset {
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .editor-instance .vditor-reset p,
@@ -738,7 +781,23 @@ button {
 .editor-instance .vditor-wysiwyg h1 {
   margin-top: 0 !important;
   margin-bottom: 0.9em !important;
-  font-size: 2.1rem !important;
+  font-size: 2em !important;
+}
+
+.editor-instance .vditor-ir .vditor-reset > h1::before,
+.editor-instance .vditor-ir .vditor-reset > h2::before,
+.editor-instance .vditor-ir .vditor-reset > h3::before,
+.editor-instance .vditor-ir .vditor-reset > h4::before,
+.editor-instance .vditor-ir .vditor-reset > h5::before,
+.editor-instance .vditor-ir .vditor-reset > h6::before,
+.editor-instance .vditor-wysiwyg > .vditor-reset > h1::before,
+.editor-instance .vditor-wysiwyg > .vditor-reset > h2::before,
+.editor-instance .vditor-wysiwyg > .vditor-reset > h3::before,
+.editor-instance .vditor-wysiwyg > .vditor-reset > h4::before,
+.editor-instance .vditor-wysiwyg > .vditor-reset > h5::before,
+.editor-instance .vditor-wysiwyg > .vditor-reset > h6::before {
+  display: none !important;
+  content: none !important;
 }
 
 .editor-instance .vditor-reset h2,
@@ -746,7 +805,7 @@ button {
 .editor-instance .vditor-wysiwyg h2 {
   margin-top: 1.8em !important;
   margin-bottom: 0.68em !important;
-  font-size: 1.65rem !important;
+  font-size: 1.62em !important;
 }
 
 .editor-instance .vditor-reset h3,
@@ -754,7 +813,7 @@ button {
 .editor-instance .vditor-wysiwyg h3 {
   margin-top: 1.55em !important;
   margin-bottom: 0.58em !important;
-  font-size: 1.34rem !important;
+  font-size: 1.34em !important;
 }
 
 .editor-instance .vditor-reset h4,
@@ -762,7 +821,7 @@ button {
 .editor-instance .vditor-wysiwyg h4 {
   margin-top: 1.3em !important;
   margin-bottom: 0.5em !important;
-  font-size: 1.12rem !important;
+  font-size: 1.12em !important;
 }
 
 .editor-instance .vditor-reset blockquote,
@@ -772,7 +831,7 @@ button {
   border-left: 3px solid #bad0fb !important;
   padding: 0.25em 0 0.25em 1em !important;
   color: #566173 !important;
-  background: rgba(238, 244, 255, 0.42) !important;
+  background: transparent !important;
 }
 
 .editor-instance .vditor-reset hr,
@@ -784,8 +843,8 @@ button {
 }
 
 .editor-instance .vditor-reset pre,
-.editor-instance .vditor-ir pre,
-.editor-instance .vditor-wysiwyg pre,
+.editor-instance .vditor-ir pre:not(.vditor-reset):not(.vditor-ir__marker--pre),
+.editor-instance .vditor-wysiwyg pre:not(.vditor-reset),
 .editor-instance .vditor-reset code,
 .editor-instance .vditor-ir code,
 .editor-instance .vditor-wysiwyg code {
@@ -793,13 +852,31 @@ button {
 }
 
 .editor-instance .vditor-reset pre,
-.editor-instance .vditor-ir pre,
-.editor-instance .vditor-wysiwyg pre {
-  border: 1px solid #e0e7f1 !important;
+.editor-instance .vditor-ir pre:not(.vditor-reset):not(.vditor-ir__marker--pre),
+.editor-instance .vditor-wysiwyg pre:not(.vditor-reset) {
+  border: 1px solid #d2dbe7 !important;
   border-radius: 16px !important;
   padding: 16px 18px !important;
-  background: #f7f9fc !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: #eef2f7 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+}
+
+.editor-instance .vditor-reset pre > code,
+.editor-instance .vditor-ir pre:not(.vditor-reset):not(.vditor-ir__marker--pre) > code,
+.editor-instance .vditor-wysiwyg pre:not(.vditor-reset) > code {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+.editor-instance .vditor-ir__marker--pre,
+.editor-instance .vditor-ir__marker--pre code {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
 }
 
 .editor-instance .vditor-reset code:not(pre code),
@@ -807,8 +884,9 @@ button {
 .editor-instance .vditor-wysiwyg code:not(pre code) {
   border-radius: 8px !important;
   padding: 0.12em 0.42em !important;
-  background: #eef3fb !important;
-  color: #23408a !important;
+  background: #e7ecf3 !important;
+  border: 1px solid #d4dce8 !important;
+  color: #1f355f !important;
 }
 
 .editor-instance .vditor-reset table,
@@ -833,7 +911,19 @@ button {
 .editor-instance .vditor-reset table th,
 .editor-instance .vditor-ir table th,
 .editor-instance .vditor-wysiwyg table th {
-  background: #f6f9fd !important;
+  background: transparent !important;
+}
+
+.editor-instance .vditor-reset table tr,
+.editor-instance .vditor-ir table tr,
+.editor-instance .vditor-wysiwyg table tr {
+  background: transparent !important;
+}
+
+.editor-instance .vditor-reset kbd,
+.editor-instance .vditor-ir kbd,
+.editor-instance .vditor-wysiwyg kbd {
+  background: transparent !important;
 }
 
 .editor-instance .vditor-reset a,
@@ -871,12 +961,12 @@ button {
 }
 
 .editor-instance .vditor-ir__preview {
-  border-radius: 14px;
+  border-radius: 0 !important;
 }
 
 .editor-instance .vditor-counter {
   color: var(--muted) !important;
-  background: rgba(252, 253, 255, 0.95) !important;
+  background: #ffffff !important;
 }
 
 .editor-instance .vditor-wysiwyg:focus,
@@ -893,9 +983,7 @@ button {
   display: grid;
   place-items: center;
   padding: 28px;
-  background:
-    linear-gradient(180deg, rgba(248, 251, 255, 0.82) 0%, rgba(255, 255, 255, 0.9) 100%);
-  backdrop-filter: blur(2px);
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .empty-state__copy {
@@ -1004,6 +1092,10 @@ button {
   .width-slider {
     flex: 1;
   }
+
+  .font-slider {
+    flex: 1;
+  }
 }
 
 @media (max-width: 860px) {
@@ -1045,7 +1137,8 @@ button {
     --editor-ir-block-padding: 18px;
   }
 
-  .width-slider {
+  .width-slider,
+  .font-slider {
     min-width: 100%;
   }
 }
@@ -1066,11 +1159,6 @@ button {
     padding: 22px 20px;
   }
 
-  .editor-instance .vditor-reset,
-  .editor-instance .vditor-ir,
-  .editor-instance .vditor-wysiwyg {
-    font-size: 16px !important;
-  }
 }
 
 @media print {
@@ -1081,6 +1169,14 @@ button {
     height: auto;
     overflow: visible;
     background: #fff;
+  }
+
+  .app-shell {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
   }
 
   .sidebar,
@@ -1099,7 +1195,14 @@ button {
   .editor-instance,
   .vditor-host,
   .editor-instance .vditor,
-  .editor-instance .vditor-content {
+  .editor-instance .vditor--fullscreen,
+  .editor-instance .vditor-content,
+  .editor-instance .vditor-preview,
+  .editor-instance .vditor-wysiwyg,
+  .editor-instance .vditor-ir,
+  .editor-instance .vditor-sv {
+    width: 100% !important;
+    max-width: none !important;
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
@@ -1107,6 +1210,46 @@ button {
     border: 0 !important;
     box-shadow: none !important;
     background: #fff !important;
+  }
+
+  .workspace {
+    display: block !important;
+    gap: 0 !important;
+  }
+
+  .editor-instance .vditor,
+  .editor-instance .vditor--fullscreen {
+    position: static !important;
+    inset: auto !important;
+  }
+
+  .editor-instance .vditor-content {
+    display: block !important;
+  }
+
+  .editor-instance .vditor-preview {
+    margin-left: 0 !important;
+    border-left: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .editor-instance .vditor-content,
+  .editor-instance .vditor-preview,
+  .editor-instance .vditor-wysiwyg,
+  .editor-instance .vditor-ir,
+  .editor-instance .vditor-sv {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .editor-instance .vditor-content::-webkit-scrollbar,
+  .editor-instance .vditor-preview::-webkit-scrollbar,
+  .editor-instance .vditor-wysiwyg::-webkit-scrollbar,
+  .editor-instance .vditor-ir::-webkit-scrollbar,
+  .editor-instance .vditor-sv::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
   }
 
   .editor-instance .vditor-wysiwyg,
