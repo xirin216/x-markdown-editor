@@ -7,7 +7,7 @@ Windows-first markdown editor built with `Tauri 2`, `React`, `TypeScript`, `Vdit
 - Opens `.md` and `.markdown` files from any path on disk
 - Opens one workspace folder for recursive markdown search
 - Shows a collapsible left sidebar with `Search` and `Outline`
-- Edits Markdown in `WYSIWYG` mode instead of source-first editing
+- Edits Markdown in `IR` mode so Markdown markers stay visible while the rendered styling remains readable
 - Accepts drag-and-drop for markdown files and one folder workspace
 - Builds a Windows `NSIS` installer package
 

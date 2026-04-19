@@ -157,7 +157,7 @@ function App() {
 
     const instance = new Vditor(editorHostRef.current, {
       height: "100%",
-      mode: "wysiwyg",
+      mode: "ir",
       theme: "classic",
       icon: "material",
       lang: "ko_KR",
@@ -976,8 +976,7 @@ function App() {
   }
 
   function focusEditorNeedle(needle: string) {
-    const container =
-      editorHostRef.current?.querySelector<HTMLElement>(".vditor-wysiwyg");
+    const container = getEditorContentElement();
     if (!container) {
       return false;
     }
@@ -1028,8 +1027,7 @@ function App() {
   }
 
   function scrollEditorToTop() {
-    const container =
-      editorHostRef.current?.querySelector<HTMLElement>(".vditor-wysiwyg");
+    const container = getEditorContentElement();
     if (!container) {
       return false;
     }
@@ -1300,7 +1298,7 @@ function App() {
                     ? activeTab.dirty
                       ? "Unsaved changes"
                       : "Saved"
-                    : "WYSIWYG editor"}
+                    : "IR markdown editor"}
                 </span>
               </div>
             </div>
@@ -1383,6 +1381,12 @@ function asErrorMessage(error: unknown) {
   }
 
   return String(error);
+}
+
+function getEditorContentElement() {
+  return document.querySelector<HTMLElement>(
+    ".vditor-ir, .vditor-wysiwyg",
+  );
 }
 
 function clampEditorWidth(value: number) {

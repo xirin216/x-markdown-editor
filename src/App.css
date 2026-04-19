@@ -688,7 +688,8 @@ button {
 }
 
 .editor-instance .vditor-reset,
-.editor-instance .vditor-wysiwyg {
+.editor-instance .vditor-wysiwyg,
+.editor-instance .vditor-ir {
   color: var(--text) !important;
   font-family: "Sitka Text", "Georgia", "Noto Serif KR", serif !important;
   font-size: 18px !important;
@@ -696,25 +697,34 @@ button {
 }
 
 .editor-instance .vditor-reset p,
+.editor-instance .vditor-ir p,
 .editor-instance .vditor-wysiwyg p,
 .editor-instance .vditor-reset li,
+.editor-instance .vditor-ir li,
 .editor-instance .vditor-wysiwyg li,
 .editor-instance .vditor-reset blockquote,
+.editor-instance .vditor-ir blockquote,
 .editor-instance .vditor-wysiwyg blockquote {
   line-height: 1.78 !important;
 }
 
 .editor-instance .vditor-reset h1,
+.editor-instance .vditor-ir h1,
 .editor-instance .vditor-wysiwyg h1,
 .editor-instance .vditor-reset h2,
+.editor-instance .vditor-ir h2,
 .editor-instance .vditor-wysiwyg h2,
 .editor-instance .vditor-reset h3,
+.editor-instance .vditor-ir h3,
 .editor-instance .vditor-wysiwyg h3,
 .editor-instance .vditor-reset h4,
+.editor-instance .vditor-ir h4,
 .editor-instance .vditor-wysiwyg h4,
 .editor-instance .vditor-reset h5,
+.editor-instance .vditor-ir h5,
 .editor-instance .vditor-wysiwyg h5,
 .editor-instance .vditor-reset h6,
+.editor-instance .vditor-ir h6,
 .editor-instance .vditor-wysiwyg h6 {
   color: #142033 !important;
   font-family: "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI", sans-serif !important;
@@ -724,6 +734,7 @@ button {
 }
 
 .editor-instance .vditor-reset h1,
+.editor-instance .vditor-ir h1,
 .editor-instance .vditor-wysiwyg h1 {
   margin-top: 0 !important;
   margin-bottom: 0.9em !important;
@@ -731,6 +742,7 @@ button {
 }
 
 .editor-instance .vditor-reset h2,
+.editor-instance .vditor-ir h2,
 .editor-instance .vditor-wysiwyg h2 {
   margin-top: 1.8em !important;
   margin-bottom: 0.68em !important;
@@ -738,6 +750,7 @@ button {
 }
 
 .editor-instance .vditor-reset h3,
+.editor-instance .vditor-ir h3,
 .editor-instance .vditor-wysiwyg h3 {
   margin-top: 1.55em !important;
   margin-bottom: 0.58em !important;
@@ -745,6 +758,7 @@ button {
 }
 
 .editor-instance .vditor-reset h4,
+.editor-instance .vditor-ir h4,
 .editor-instance .vditor-wysiwyg h4 {
   margin-top: 1.3em !important;
   margin-bottom: 0.5em !important;
@@ -752,6 +766,7 @@ button {
 }
 
 .editor-instance .vditor-reset blockquote,
+.editor-instance .vditor-ir blockquote,
 .editor-instance .vditor-wysiwyg blockquote {
   margin: 1.2em 0 !important;
   border-left: 3px solid #bad0fb !important;
@@ -761,6 +776,7 @@ button {
 }
 
 .editor-instance .vditor-reset hr,
+.editor-instance .vditor-ir hr,
 .editor-instance .vditor-wysiwyg hr {
   border: 0 !important;
   border-top: 1px solid #dbe4ef !important;
@@ -768,13 +784,16 @@ button {
 }
 
 .editor-instance .vditor-reset pre,
+.editor-instance .vditor-ir pre,
 .editor-instance .vditor-wysiwyg pre,
 .editor-instance .vditor-reset code,
+.editor-instance .vditor-ir code,
 .editor-instance .vditor-wysiwyg code {
   font-family: "Cascadia Code", "Consolas", "Courier New", monospace !important;
 }
 
 .editor-instance .vditor-reset pre,
+.editor-instance .vditor-ir pre,
 .editor-instance .vditor-wysiwyg pre {
   border: 1px solid #e0e7f1 !important;
   border-radius: 16px !important;
@@ -784,6 +803,7 @@ button {
 }
 
 .editor-instance .vditor-reset code:not(pre code),
+.editor-instance .vditor-ir code:not(pre code),
 .editor-instance .vditor-wysiwyg code:not(pre code) {
   border-radius: 8px !important;
   padding: 0.12em 0.42em !important;
@@ -792,6 +812,7 @@ button {
 }
 
 .editor-instance .vditor-reset table,
+.editor-instance .vditor-ir table,
 .editor-instance .vditor-wysiwyg table {
   border-collapse: collapse !important;
   width: 100% !important;
@@ -800,27 +821,57 @@ button {
 }
 
 .editor-instance .vditor-reset table th,
+.editor-instance .vditor-ir table th,
 .editor-instance .vditor-wysiwyg table th,
 .editor-instance .vditor-reset table td,
+.editor-instance .vditor-ir table td,
 .editor-instance .vditor-wysiwyg table td {
   border: 1px solid #dde6f0 !important;
   padding: 10px 12px !important;
 }
 
 .editor-instance .vditor-reset table th,
+.editor-instance .vditor-ir table th,
 .editor-instance .vditor-wysiwyg table th {
   background: #f6f9fd !important;
 }
 
 .editor-instance .vditor-reset a,
+.editor-instance .vditor-ir a,
 .editor-instance .vditor-wysiwyg a {
   color: var(--accent-strong) !important;
 }
 
 .editor-instance .vditor-reset img,
+.editor-instance .vditor-ir img,
 .editor-instance .vditor-wysiwyg img {
   max-width: 100% !important;
   border-radius: 16px !important;
+}
+
+.editor-instance .vditor-ir__marker {
+  color: #8490a1 !important;
+  font-family: "Cascadia Code", "Consolas", "Courier New", monospace !important;
+  opacity: 0.84;
+}
+
+.editor-instance .vditor-ir__marker--heading,
+.editor-instance .vditor-ir__marker--bi,
+.editor-instance .vditor-ir__marker--link,
+.editor-instance .vditor-ir__marker--title,
+.editor-instance .vditor-ir__marker--paren,
+.editor-instance .vditor-ir__marker--bracket,
+.editor-instance .vditor-ir__marker--info {
+  color: #6e7b8d !important;
+}
+
+.editor-instance .vditor-ir__node--expand .vditor-ir__marker {
+  color: #5b6778 !important;
+  opacity: 1;
+}
+
+.editor-instance .vditor-ir__preview {
+  border-radius: 14px;
 }
 
 .editor-instance .vditor-counter {
@@ -1016,6 +1067,7 @@ button {
   }
 
   .editor-instance .vditor-reset,
+  .editor-instance .vditor-ir,
   .editor-instance .vditor-wysiwyg {
     font-size: 16px !important;
   }
