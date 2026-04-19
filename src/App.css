@@ -964,6 +964,36 @@ button {
   border-radius: 0 !important;
 }
 
+.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > .vditor-ir__preview,
+.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > pre.vditor-ir__preview {
+  margin: 0 0 1em !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+}
+
+.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > .vditor-ir__preview > :first-child,
+.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > pre.vditor-ir__preview > :first-child {
+  margin-top: 0 !important;
+}
+
+.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > .vditor-ir__preview > :last-child,
+.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > pre.vditor-ir__preview > :last-child {
+  margin-bottom: 0 !important;
+}
+
+.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > .vditor-ir__preview h1,
+.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > .vditor-ir__preview h2,
+.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > pre.vditor-ir__preview h1,
+.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > pre.vditor-ir__preview h2 {
+  padding-bottom: 0 !important;
+  border-bottom: 0 !important;
+}
+
 .editor-instance .vditor-counter {
   color: var(--muted) !important;
   background: #ffffff !important;
