@@ -1,0 +1,50 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "X Markdown Editor",
+  "version": "0.1.0",
+  "identifier": "com.xirin.xmarkdowneditor",
+  "build": {
+    "beforeDevCommand": "npm.cmd run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm.cmd run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "X Markdown Editor",
+        "width": 1480,
+        "height": 940,
+        "minWidth": 1024,
+        "minHeight": 720,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "xirin",
+    "category": "Productivity",
+    "shortDescription": "Edit markdown files from anywhere on disk.",
+    "longDescription": "A Windows-first markdown editor with source-first editing, workspace search, live outline navigation, and drag-and-drop file loading for files anywhere on disk.",
+    "copyright": "© 2026 xirin",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
