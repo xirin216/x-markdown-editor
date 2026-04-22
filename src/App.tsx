@@ -86,6 +86,7 @@ function App() {
   );
   const [pendingJump, setPendingJump] = useState<LineJump | null>(null);
   const [editorReady, setEditorReady] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [editorWidthMode, setEditorWidthMode] = useState<EditorWidthMode>(
     readStoredEditorWidthMode,
   );
@@ -978,113 +979,134 @@ function App() {
       </aside>
 
       <main className="workspace">
-        <header className="app-header">
-          <div className="app-brand">
-            <strong className="app-title">x markdown editor</strong>
-            <span className="app-subtitle">{activeLocationLabel}</span>
+        <div className="tabs">
+          <div className="tabs__main">
+            <div className="tabs__brand">
+              <strong>x markdown editor</strong>
+              <span>{activeLocationLabel}</span>
+            </div>
+            <div className="tabs__list">
+              {tabs.length === 0 ? (
+                <div className="tabs__empty">
+                  Drop a markdown file anywhere on the window, or open one from disk.
+                </div>
+              ) : (
+                tabs.map((tab) => (
+                  <button
+                    key={tab.path}
+                    type="button"
+                    className={`tab ${activeTab?.path === tab.path ? "tab--active" : ""}`}
+                    title={tab.path}
+                    onClick={() => setActivePath(tab.path)}
+                  >
+                    <span className="tab__title">{tab.title}</span>
+                    {tab.dirty ? <span className="tab__dot" /> : null}
+                    <span className="tab__sync">{tab.syncState === "clean" ? "" : "!"}</span>
+                    <span
+                      className="tab__close"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void closeTab(tab.path);
+                      }}
+                    >
+                      x
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
-          <div className="app-controls">
-            <div className="width-controls">
-              <label className="width-slider">
-                <span>Page width</span>
-                <input
-                  type="range"
-                  min={MIN_EDITOR_WIDTH}
-                  max={MAX_EDITOR_WIDTH}
-                  step={20}
-                  value={editorWidth}
-                  onChange={handleEditorWidthChange}
-                  aria-label="Adjust editor page width"
-                />
-                <strong>{editorWidthMode === "full" ? "Window" : `${editorWidth}px`}</strong>
-              </label>
-              <label className="font-slider">
-                <span>Text size</span>
-                <input
-                  type="range"
-                  min={MIN_EDITOR_FONT_SIZE}
-                  max={MAX_EDITOR_FONT_SIZE}
-                  step={1}
-                  value={editorFontSize}
-                  onChange={handleEditorFontSizeChange}
-                  aria-label="Adjust editor text size"
-                />
-                <strong>{activeFontLabel}</strong>
-              </label>
-              <div className="view-options" aria-label="Editor controls">
-                <button
-                  type="button"
-                  className={editorWidthMode === "bounded" ? "is-active" : undefined}
-                  onClick={() => setEditorWidthMode("bounded")}
-                >
-                  Custom
+          <div className="tabs__actions">
+            <button
+              type="button"
+              className={`tabs__settings-button ${settingsOpen ? "is-active" : ""}`}
+              aria-expanded={settingsOpen}
+              aria-label="Toggle editor settings"
+              onClick={() => setSettingsOpen((current) => !current)}
+            >
+              {settingsOpen ? "Hide settings" : "Settings"}
+            </button>
+          </div>
+        </div>
+
+        {settingsOpen ? (
+          <header className="app-header app-header--panel">
+            <div className="app-brand">
+              <strong className="app-title">Editor settings</strong>
+              <span className="app-subtitle">{activeLocationLabel}</span>
+            </div>
+            <div className="app-controls">
+              <div className="width-controls">
+                <label className="width-slider">
+                  <span>Page width</span>
+                  <input
+                    type="range"
+                    min={MIN_EDITOR_WIDTH}
+                    max={MAX_EDITOR_WIDTH}
+                    step={20}
+                    value={editorWidth}
+                    onChange={handleEditorWidthChange}
+                    aria-label="Adjust editor page width"
+                  />
+                  <strong>{editorWidthMode === "full" ? "Window" : `${editorWidth}px`}</strong>
+                </label>
+                <label className="font-slider">
+                  <span>Text size</span>
+                  <input
+                    type="range"
+                    min={MIN_EDITOR_FONT_SIZE}
+                    max={MAX_EDITOR_FONT_SIZE}
+                    step={1}
+                    value={editorFontSize}
+                    onChange={handleEditorFontSizeChange}
+                    aria-label="Adjust editor text size"
+                  />
+                  <strong>{activeFontLabel}</strong>
+                </label>
+                <div className="view-options" aria-label="Editor controls">
+                  <button
+                    type="button"
+                    className={editorWidthMode === "bounded" ? "is-active" : undefined}
+                    onClick={() => setEditorWidthMode("bounded")}
+                  >
+                    Custom
+                  </button>
+                  <button
+                    type="button"
+                    className={editorWidthMode === "full" ? "is-active" : undefined}
+                    onClick={() => setEditorWidthMode("full")}
+                  >
+                    Fit window
+                  </button>
+                  <button type="button" onClick={resetEditorWidth}>
+                    Width reset
+                  </button>
+                  <button type="button" onClick={resetEditorFontSize}>
+                    Text reset
+                  </button>
+                </div>
+              </div>
+              <div className="app-actions">
+                <button type="button" onClick={() => void openFilesFromPicker()}>
+                  Open File
+                </button>
+                <button type="button" onClick={() => void openFolderFromPicker()}>
+                  Open Folder
                 </button>
                 <button
                   type="button"
-                  className={editorWidthMode === "full" ? "is-active" : undefined}
-                  onClick={() => setEditorWidthMode("full")}
+                  className="app-actions__primary"
+                  onClick={() => void saveActiveDocument()}
+                  disabled={!activeTab || !editorReady}
                 >
-                  Fit window
-                </button>
-                <button type="button" onClick={resetEditorWidth}>
-                  Width reset
-                </button>
-                <button type="button" onClick={resetEditorFontSize}>
-                  Text reset
+                  Save
                 </button>
               </div>
             </div>
-            <div className="app-actions">
-              <button type="button" onClick={() => void openFilesFromPicker()}>
-                Open File
-              </button>
-              <button type="button" onClick={() => void openFolderFromPicker()}>
-                Open Folder
-              </button>
-              <button
-                type="button"
-                className="app-actions__primary"
-                onClick={() => void saveActiveDocument()}
-                disabled={!activeTab || !editorReady}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </header>
+          </header>
+        ) : null}
 
         {renderSyncBanner()}
-
-        <div className="tabs">
-          {tabs.length === 0 ? (
-            <div className="tabs__empty">
-              Drop a markdown file anywhere on the window, or open one from disk.
-            </div>
-          ) : (
-            tabs.map((tab) => (
-              <button
-                key={tab.path}
-                type="button"
-                className={`tab ${activeTab?.path === tab.path ? "tab--active" : ""}`}
-                title={tab.path}
-                onClick={() => setActivePath(tab.path)}
-              >
-                <span className="tab__title">{tab.title}</span>
-                {tab.dirty ? <span className="tab__dot" /> : null}
-                <span className="tab__sync">{tab.syncState === "clean" ? "" : "!"}</span>
-                <span
-                  className="tab__close"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void closeTab(tab.path);
-                  }}
-                >
-                  x
-                </span>
-              </button>
-            ))
-          )}
-        </div>
 
         <div
           className="editor-pane"

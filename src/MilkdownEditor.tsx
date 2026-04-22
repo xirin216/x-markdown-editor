@@ -30,6 +30,7 @@ import {
 } from "@milkdown/kit/preset/commonmark";
 import { createTable } from "@milkdown/kit/preset/gfm";
 import { replaceAll } from "@milkdown/kit/utils";
+import { milkdownHtmlPreview } from "./milkdownHtmlPreview";
 
 type MilkdownEditorProps = {
   value: string;
@@ -228,6 +229,7 @@ function MilkdownEditorInner({
         },
       },
     });
+    crepe.editor.use(milkdownHtmlPreview);
 
     crepeRef.current = crepe;
     lastMarkdownRef.current = value;
