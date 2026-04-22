@@ -7,8 +7,6 @@ import {
   type ChangeEvent,
   type CSSProperties,
 } from "react";
-import Vditor from "vditor";
-import "vditor/dist/index.css";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { confirm, message, open } from "@tauri-apps/plugin-dialog";
@@ -38,6 +36,7 @@ import type {
   WatchEventPayload,
   WorkspaceInfo,
 } from "./types";
+import MilkdownEditor from "./MilkdownEditor";
 import "./App.css";
 
 type LineJump = {
@@ -93,15 +92,10 @@ function App() {
   const [editorWidth, setEditorWidth] = useState(readStoredEditorWidth);
   const [editorFontSize, setEditorFontSize] = useState(readStoredEditorFontSize);
 
-  const editorHostRef = useRef<HTMLDivElement>(null);
-  const vditorRef = useRef<Vditor | null>(null);
   const tabsRef = useRef(tabs);
   const workspaceRef = useRef(workspace);
   const activePathRef = useRef(activePath);
-  const editorPathRef = useRef<string | null>(null);
-  const editorValueRef = useRef("");
   const ignoreWatchUntilRef = useRef<Record<string, number>>({});
-  const suppressInputRef = useRef(false);
 
   tabsRef.current = tabs;
   workspaceRef.current = workspace;
@@ -163,114 +157,10 @@ function App() {
   }, [editorFontSize]);
 
   useEffect(() => {
-    if (!editorHostRef.current || vditorRef.current) {
-      return;
-    }
-
-    let disposed = false;
-
-    const instance = new Vditor(editorHostRef.current, {
-      height: "100%",
-      mode: "ir",
-      theme: "classic",
-      icon: "material",
-      lang: "ko_KR",
-      cdn: "/vditor",
-      cache: {
-        enable: false,
-      },
-      toolbarConfig: {
-        pin: true,
-        hide: false,
-      },
-      toolbar: [
-        "emoji",
-        "headings",
-        "bold",
-        "italic",
-        "strike",
-        "link",
-        "|",
-        "list",
-        "ordered-list",
-        "check",
-        "outdent",
-        "indent",
-        "|",
-        "quote",
-        "line",
-        "code",
-        "inline-code",
-        "insert-before",
-        "insert-after",
-        "|",
-        "table",
-        "|",
-        "undo",
-        "redo",
-        "|",
-        "edit-mode",
-        "content-theme",
-      ],
-      placeholder: "Open a markdown file and start writing.",
-      preview: {
-        theme: {
-          current: "light",
-        },
-        markdown: {
-          toc: true,
-        },
-      },
-      outline: {
-        enable: false,
-        position: "right",
-      },
-      hint: {
-        parse: true,
-        delay: 0,
-      },
-      input: (value: string) => {
-        editorValueRef.current = value;
-        if (suppressInputRef.current) {
-          return;
-        }
-
-        const currentPath = activePathRef.current;
-        if (!currentPath) {
-          return;
-        }
-
-        setTabs((currentTabs) =>
-          currentTabs.map((tab) =>
-            normalizePathForKey(tab.path) === normalizePathForKey(currentPath)
-              ? {
-                  ...tab,
-                  content: value,
-                  dirty: value !== tab.savedContent,
-                  syncState: tab.syncState === "deleted" ? "deleted" : tab.syncState,
-                }
-              : tab,
-          ),
-        );
-      },
-      after: () => {
-        if (disposed) {
-          return;
-        }
-
-        vditorRef.current = instance;
-        setEditorReady(true);
-        syncEditorWithActiveTab(activeTab, true);
-      },
-    });
-
-    return () => {
-      disposed = true;
+    if (!activeTab) {
       setEditorReady(false);
-      vditorRef.current = null;
-      instance.destroy();
-    };
-  }, []);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     let disposed = false;
@@ -387,10 +277,6 @@ function App() {
   }, [deferredActiveContent]);
 
   useEffect(() => {
-    syncEditorWithActiveTab(activeTab, false);
-  }, [activeTab?.path, activeTab?.content, activeTab?.syncState, editorReady]);
-
-  useEffect(() => {
     let cancelled = false;
 
     const runSearch = async () => {
@@ -479,45 +365,6 @@ function App() {
   }, [deferredSearchQuery, workspace, activeTab?.path, activeTab?.content]);
 
   useEffect(() => {
-    if (!pendingJump || !activeTab || !editorReady) {
-      return;
-    }
-
-    if (
-      normalizePathForKey(pendingJump.path) !== normalizePathForKey(activeTab.path)
-    ) {
-      return;
-    }
-
-    let attempts = 0;
-    let cancelled = false;
-    const needle =
-      pendingJump.needle?.trim() || resolveJumpNeedle(activeTab.content, pendingJump);
-
-    const focusWhenReady = () => {
-      if (cancelled) {
-        return;
-      }
-
-      const found = needle ? focusEditorNeedle(needle) : scrollEditorToTop();
-      attempts += 1;
-
-      if (found || attempts >= 8) {
-        setPendingJump(null);
-        return;
-      }
-
-      window.setTimeout(focusWhenReady, 50);
-    };
-
-    window.setTimeout(focusWhenReady, 60);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [pendingJump, activeTab?.path, activeTab?.content, editorReady]);
-
-  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const modifierPressed = event.ctrlKey || event.metaKey;
       if (!modifierPressed) {
@@ -548,47 +395,24 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeTab, workspace, watchPaths.join("|")]);
 
-  function syncEditorWithActiveTab(tab: DocumentTab | null, clearStack: boolean) {
-    const editor = vditorRef.current;
-    if (!editor) {
+  function handleEditorChange(nextContent: string) {
+    const currentPath = activePathRef.current;
+    if (!currentPath) {
       return;
     }
 
-    if (!tab) {
-      if (editorPathRef.current !== null || editorValueRef.current !== "") {
-        suppressInputRef.current = true;
-        editor.setValue("", true);
-        editorValueRef.current = "";
-        editorPathRef.current = null;
-        window.setTimeout(() => {
-          suppressInputRef.current = false;
-          editor.disabled();
-        }, 0);
-      } else {
-        editor.disabled();
-      }
-      return;
-    }
-
-    editor.enable();
-
-    const currentPathKey = normalizePathForKey(editorPathRef.current ?? "");
-    const nextPathKey = normalizePathForKey(tab.path);
-    const shouldSync =
-      currentPathKey !== nextPathKey || editorValueRef.current !== tab.content;
-
-    if (!shouldSync) {
-      return;
-    }
-
-    suppressInputRef.current = true;
-    editor.setValue(tab.content, clearStack);
-    editorValueRef.current = tab.content;
-    editorPathRef.current = tab.path;
-    window.setTimeout(() => {
-      suppressInputRef.current = false;
-      editor.focus();
-    }, 0);
+    setTabs((currentTabs) =>
+      currentTabs.map((tab) =>
+        normalizePathForKey(tab.path) === normalizePathForKey(currentPath)
+          ? {
+              ...tab,
+              content: nextContent,
+              dirty: nextContent !== tab.savedContent,
+              syncState: tab.syncState === "deleted" ? "deleted" : tab.syncState,
+            }
+          : tab,
+      ),
+    );
   }
 
   async function loadMarkdownFile(
@@ -747,7 +571,7 @@ function App() {
     }
 
     try {
-      const content = vditorRef.current?.getValue() ?? activeTab.content;
+      const content = activeTab.content;
       const result = await saveFileCommand(activeTab.path, content);
       const normalized = normalizePathForKey(result.path);
       ignoreWatchUntilRef.current[normalized] = Date.now() + 1500;
@@ -989,67 +813,6 @@ function App() {
     );
   }
 
-  function focusEditorNeedle(needle: string) {
-    const container = getEditorContentElement();
-    if (!container) {
-      return false;
-    }
-
-    const normalizedNeedle = needle.trim().toLowerCase();
-    if (!normalizedNeedle) {
-      return false;
-    }
-
-    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
-      acceptNode(node) {
-        const text = node.textContent ?? "";
-        return text.trim()
-          ? NodeFilter.FILTER_ACCEPT
-          : NodeFilter.FILTER_REJECT;
-      },
-    });
-
-    let current = walker.nextNode();
-    while (current) {
-      const text = current.textContent ?? "";
-      const index = text.toLowerCase().indexOf(normalizedNeedle);
-      if (index !== -1 && current.parentElement) {
-        const targetNode = current as Text;
-        const safeEnd = Math.min(index + needle.length, targetNode.length);
-        const range = document.createRange();
-        range.setStart(targetNode, index);
-        range.setEnd(targetNode, safeEnd);
-
-        const selection = window.getSelection();
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-
-        const block =
-          current.parentElement.closest("h1, h2, h3, h4, h5, h6, p, li, blockquote, pre, table, div") ??
-          current.parentElement;
-        block.scrollIntoView({
-          block: "center",
-          behavior: "auto",
-        });
-        vditorRef.current?.focus();
-        return true;
-      }
-      current = walker.nextNode();
-    }
-
-    return false;
-  }
-
-  function scrollEditorToTop() {
-    const container = getEditorContentElement();
-    if (!container) {
-      return false;
-    }
-
-    container.scrollTop = 0;
-    return true;
-  }
-
   function handleEditorWidthChange(event: ChangeEvent<HTMLInputElement>) {
     setEditorWidthMode("bounded");
     setEditorWidth(clampEditorWidth(Number(event.currentTarget.value)));
@@ -1076,6 +839,19 @@ function App() {
         : dragState.acceptedKind === "invalid"
           ? "Drop .md or .markdown files, or a single folder."
           : "Drop a markdown file or a single folder.";
+  const activeJumpTarget =
+    pendingJump &&
+    activeTab &&
+    normalizePathForKey(pendingJump.path) === normalizePathForKey(activeTab.path)
+      ? pendingJump
+      : null;
+  const activeJumpNeedle = activeJumpTarget && activeTab
+    ? activeJumpTarget.needle?.trim() ||
+      resolveJumpNeedle(activeTab.content, activeJumpTarget)
+    : undefined;
+  const activeJumpKey = activeJumpTarget
+    ? `${normalizePathForKey(activeJumpTarget.path)}:${activeJumpTarget.line}:${activeJumpTarget.column}:${activeJumpNeedle ?? ""}`
+    : undefined;
 
   return (
     <div className="app-shell">
@@ -1336,7 +1112,7 @@ function App() {
                     ? activeTab.dirty
                       ? "Unsaved changes"
                       : "Saved"
-                    : "IR markdown editor"}
+                    : "Hybrid markdown editor"}
                 </span>
               </div>
             </div>
@@ -1360,7 +1136,19 @@ function App() {
                   </div>
                 </div>
               ) : null}
-              <div ref={editorHostRef} className="vditor-host" />
+              {activeTab ? (
+                <MilkdownEditor
+                  key={activeTab.path}
+                  value={activeTab.content}
+                  onChange={handleEditorChange}
+                  autofocus
+                  jumpNeedle={activeJumpNeedle}
+                  jumpKey={activeJumpKey}
+                  onJumpHandled={() => setPendingJump(null)}
+                  onReadyChange={setEditorReady}
+                  style={editorPaneStyle}
+                />
+              ) : null}
             </div>
           </div>
         </div>
@@ -1420,12 +1208,6 @@ function asErrorMessage(error: unknown) {
   }
 
   return String(error);
-}
-
-function getEditorContentElement() {
-  return document.querySelector<HTMLElement>(
-    ".vditor-ir, .vditor-wysiwyg",
-  );
 }
 
 function clampEditorWidth(value: number) {

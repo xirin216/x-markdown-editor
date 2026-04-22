@@ -615,395 +615,289 @@ button {
   background: var(--editor-bg);
 }
 
-.vditor-host {
+.milkdown-editor {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
+  background: #ffffff;
 }
 
-.editor-instance .vditor {
-  --panel-background-color: #ffffff !important;
-  --toolbar-background-color: #ffffff !important;
-  --textarea-background-color: #ffffff !important;
-  --count-background-color: rgba(27, 31, 35, 0.05) !important;
-  height: 100% !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  background-color: transparent !important;
-  overflow: hidden;
+.milkdown-editor--disabled {
+  opacity: 0.74;
 }
 
-.editor-instance .vditor-toolbar {
-  border-bottom: 1px solid #e8eef6 !important;
-  background: #ffffff !important;
-  padding: 8px 16px !important;
-  opacity: 1 !important;
+.milkdown-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e8eef6;
+  background: #ffffff;
 }
 
-.editor-instance .vditor-toolbar__item {
-  color: #516074 !important;
+.milkdown-toolbar__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-.editor-instance .vditor-toolbar__item:hover,
-.editor-instance .vditor-toolbar__item--current {
-  color: var(--text) !important;
-  background: #edf4ff !important;
+.milkdown-toolbar__group:not(:last-child)::after {
+  content: "";
+  width: 1px;
+  height: 24px;
+  margin-left: 6px;
+  background: rgba(196, 207, 222, 0.9);
 }
 
-.editor-instance .vditor-content {
-  height: calc(100% - 49px) !important;
-  border: 0 !important;
-  outline: 0 !important;
-  box-shadow: none !important;
-  background: #ffffff !important;
-  background-image: none !important;
+.milkdown-toolbar button {
+  border: 1px solid rgba(216, 224, 234, 0.94);
+  border-radius: 999px;
+  padding: 7px 12px;
+  color: #516074;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
 }
 
-.editor-instance .vditor-reset,
-.editor-instance .vditor-ir,
-.editor-instance .vditor-wysiwyg {
-  border: 0 !important;
-  outline: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  background-image: none !important;
+.milkdown-toolbar button:hover:not(:disabled) {
+  color: var(--text);
+  border-color: #bdd0f7;
+  background: #edf4ff;
+  transform: translateY(-1px);
 }
 
-.editor-instance .vditor-ir__node,
-.editor-instance .vditor-ir__preview,
-.editor-instance .vditor-reset > *,
-.editor-instance .vditor-ir > *,
-.editor-instance .vditor-wysiwyg > * {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
+.milkdown-toolbar button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
-.editor-instance .vditor-content .vditor-reset :not(pre):not(code),
-.editor-instance .vditor-content .vditor-ir :not(pre):not(code),
-.editor-instance .vditor-content .vditor-wysiwyg :not(pre):not(code) {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
+.milkdown-surface {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #ffffff;
+  scroll-padding-top: 28px;
 }
 
-.editor-instance .vditor-wysiwyg,
-.editor-instance .vditor-ir {
-  width: min(100%, var(--editor-content-width)) !important;
-  max-width: var(--editor-content-width) !important;
-  min-height: 100% !important;
-  margin: 0 auto !important;
-  padding-block: var(--editor-content-block-padding) !important;
-  padding-inline: var(--editor-content-padding) !important;
-  box-sizing: border-box !important;
+.milkdown-surface [data-milkdown-root] {
+  min-height: 100%;
 }
 
-.editor-instance .vditor-ir {
-  padding-block: var(--editor-ir-block-padding) !important;
+.editor-instance .milkdown {
+  min-height: 100%;
+  background: transparent;
+  --crepe-color-background: #ffffff;
+  --crepe-color-on-background: #1d2736;
+  --crepe-color-surface: #eef2f7;
+  --crepe-color-surface-low: #e2e8f0;
+  --crepe-color-on-surface: #1d2736;
+  --crepe-color-on-surface-variant: #5f6b7c;
+  --crepe-color-outline: #c4cfde;
+  --crepe-color-primary: #1d4ed8;
+  --crepe-color-secondary: #dbe7ff;
+  --crepe-color-on-secondary: #173068;
+  --crepe-color-inverse: #1d2736;
+  --crepe-color-on-inverse: #ffffff;
+  --crepe-color-inline-code: #1f355f;
+  --crepe-color-hover: #edf4ff;
+  --crepe-color-selected: rgba(37, 99, 235, 0.16);
+  --crepe-color-inline-area: #d8e1ed;
+  --crepe-font-default: "Sitka Text", "Georgia", "Noto Serif KR", serif;
+  --crepe-font-title: "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  --crepe-font-code: "Cascadia Code", "Consolas", "Courier New", monospace;
+  --crepe-shadow-1: 0 8px 24px rgba(15, 23, 42, 0.06);
+  --crepe-shadow-2: 0 18px 34px rgba(15, 23, 42, 0.12);
 }
 
-.editor-instance .vditor-sv {
-  width: min(100%, var(--editor-content-width)) !important;
-  max-width: var(--editor-content-width) !important;
-  margin: 0 auto !important;
-  padding-block: var(--editor-sv-block-padding) !important;
-  padding-inline: var(--editor-content-padding) !important;
-  box-sizing: border-box !important;
+.editor-instance .milkdown .ProseMirror {
+  width: min(100%, var(--editor-content-width));
+  max-width: var(--editor-content-width);
+  min-height: 100%;
+  margin: 0 auto;
+  padding:
+    var(--editor-content-block-padding)
+    var(--editor-content-padding)
+    calc(var(--editor-content-block-padding) + 28px);
+  box-sizing: border-box;
+  color: var(--text);
+  font-family: "Sitka Text", "Georgia", "Noto Serif KR", serif;
+  font-size: var(--editor-font-size);
+  line-height: 1.78;
 }
 
-.editor-instance .vditor-preview > .vditor-reset {
-  width: min(100%, var(--editor-content-width)) !important;
-  max-width: var(--editor-content-width) !important;
-  min-height: 100% !important;
-  margin: 0 auto !important;
-  padding-block: var(--editor-content-block-padding) !important;
-  padding-inline: var(--editor-content-padding) !important;
-  box-sizing: border-box !important;
+.editor-instance .milkdown .ProseMirror > *:first-child {
+  margin-top: 0;
 }
 
-.editor-instance .vditor-reset,
-.editor-instance .vditor-wysiwyg,
-.editor-instance .vditor-ir {
-  color: var(--text) !important;
-  font-family: "Sitka Text", "Georgia", "Noto Serif KR", serif !important;
-  font-size: var(--editor-font-size) !important;
-  line-height: 1.78 !important;
+.editor-instance .milkdown .ProseMirror p,
+.editor-instance .milkdown .ProseMirror li,
+.editor-instance .milkdown .ProseMirror blockquote {
+  line-height: 1.78;
 }
 
-.editor-instance .vditor-ir pre.vditor-reset,
-.editor-instance .vditor-wysiwyg pre.vditor-reset {
-  border: 0 !important;
-  border-radius: 0 !important;
-  padding: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.editor-instance .vditor-reset p,
-.editor-instance .vditor-ir p,
-.editor-instance .vditor-wysiwyg p,
-.editor-instance .vditor-reset li,
-.editor-instance .vditor-ir li,
-.editor-instance .vditor-wysiwyg li,
-.editor-instance .vditor-reset blockquote,
-.editor-instance .vditor-ir blockquote,
-.editor-instance .vditor-wysiwyg blockquote {
-  line-height: 1.78 !important;
-}
-
-.editor-instance .vditor-reset h1,
-.editor-instance .vditor-ir h1,
-.editor-instance .vditor-wysiwyg h1,
-.editor-instance .vditor-reset h2,
-.editor-instance .vditor-ir h2,
-.editor-instance .vditor-wysiwyg h2,
-.editor-instance .vditor-reset h3,
-.editor-instance .vditor-ir h3,
-.editor-instance .vditor-wysiwyg h3,
-.editor-instance .vditor-reset h4,
-.editor-instance .vditor-ir h4,
-.editor-instance .vditor-wysiwyg h4,
-.editor-instance .vditor-reset h5,
-.editor-instance .vditor-ir h5,
-.editor-instance .vditor-wysiwyg h5,
-.editor-instance .vditor-reset h6,
-.editor-instance .vditor-ir h6,
-.editor-instance .vditor-wysiwyg h6 {
-  color: #142033 !important;
-  font-family: "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI", sans-serif !important;
-  font-weight: 700 !important;
-  line-height: 1.22 !important;
+.editor-instance .milkdown .ProseMirror h1,
+.editor-instance .milkdown .ProseMirror h2,
+.editor-instance .milkdown .ProseMirror h3,
+.editor-instance .milkdown .ProseMirror h4,
+.editor-instance .milkdown .ProseMirror h5,
+.editor-instance .milkdown .ProseMirror h6 {
+  color: #142033;
+  font-family: "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  font-weight: 700;
+  line-height: 1.22;
   letter-spacing: -0.02em;
 }
 
-.editor-instance .vditor-reset h1,
-.editor-instance .vditor-ir h1,
-.editor-instance .vditor-wysiwyg h1 {
-  margin-top: 0 !important;
-  margin-bottom: 0.9em !important;
-  font-size: 2em !important;
+.editor-instance .milkdown .ProseMirror h1 {
+  margin-top: 0;
+  margin-bottom: 0.9em;
+  font-size: 2em;
 }
 
-.editor-instance .vditor-ir .vditor-reset > h1::before,
-.editor-instance .vditor-ir .vditor-reset > h2::before,
-.editor-instance .vditor-ir .vditor-reset > h3::before,
-.editor-instance .vditor-ir .vditor-reset > h4::before,
-.editor-instance .vditor-ir .vditor-reset > h5::before,
-.editor-instance .vditor-ir .vditor-reset > h6::before,
-.editor-instance .vditor-wysiwyg > .vditor-reset > h1::before,
-.editor-instance .vditor-wysiwyg > .vditor-reset > h2::before,
-.editor-instance .vditor-wysiwyg > .vditor-reset > h3::before,
-.editor-instance .vditor-wysiwyg > .vditor-reset > h4::before,
-.editor-instance .vditor-wysiwyg > .vditor-reset > h5::before,
-.editor-instance .vditor-wysiwyg > .vditor-reset > h6::before {
-  display: none !important;
-  content: none !important;
+.editor-instance .milkdown .ProseMirror h2 {
+  margin-top: 1.8em;
+  margin-bottom: 0.68em;
+  font-size: 1.62em;
 }
 
-.editor-instance .vditor-reset h2,
-.editor-instance .vditor-ir h2,
-.editor-instance .vditor-wysiwyg h2 {
-  margin-top: 1.8em !important;
-  margin-bottom: 0.68em !important;
-  font-size: 1.62em !important;
+.editor-instance .milkdown .ProseMirror h3 {
+  margin-top: 1.55em;
+  margin-bottom: 0.58em;
+  font-size: 1.34em;
 }
 
-.editor-instance .vditor-reset h3,
-.editor-instance .vditor-ir h3,
-.editor-instance .vditor-wysiwyg h3 {
-  margin-top: 1.55em !important;
-  margin-bottom: 0.58em !important;
-  font-size: 1.34em !important;
+.editor-instance .milkdown .ProseMirror h4 {
+  margin-top: 1.3em;
+  margin-bottom: 0.5em;
+  font-size: 1.12em;
 }
 
-.editor-instance .vditor-reset h4,
-.editor-instance .vditor-ir h4,
-.editor-instance .vditor-wysiwyg h4 {
-  margin-top: 1.3em !important;
-  margin-bottom: 0.5em !important;
-  font-size: 1.12em !important;
+.editor-instance .milkdown .ProseMirror blockquote {
+  margin: 1.2em 0;
+  padding: 0.25em 0 0.25em 1em;
+  color: #566173;
+  border-left: 3px solid #bad0fb;
 }
 
-.editor-instance .vditor-reset blockquote,
-.editor-instance .vditor-ir blockquote,
-.editor-instance .vditor-wysiwyg blockquote {
-  margin: 1.2em 0 !important;
-  border-left: 3px solid #bad0fb !important;
-  padding: 0.25em 0 0.25em 1em !important;
-  color: #566173 !important;
-  background: transparent !important;
+.editor-instance .milkdown .ProseMirror blockquote::before {
+  display: none;
 }
 
-.editor-instance .vditor-reset hr,
-.editor-instance .vditor-ir hr,
-.editor-instance .vditor-wysiwyg hr {
-  border: 0 !important;
-  border-top: 1px solid #dbe4ef !important;
-  margin: 2em 0 !important;
+.editor-instance .milkdown .ProseMirror hr {
+  border: 0;
+  border-top: 1px solid #dbe4ef;
+  margin: 2em 0;
+  padding: 0;
+  height: 0;
+  background: transparent;
 }
 
-.editor-instance .vditor-reset pre,
-.editor-instance .vditor-ir pre:not(.vditor-reset):not(.vditor-ir__marker--pre),
-.editor-instance .vditor-wysiwyg pre:not(.vditor-reset),
-.editor-instance .vditor-reset code,
-.editor-instance .vditor-ir code,
-.editor-instance .vditor-wysiwyg code {
-  font-family: "Cascadia Code", "Consolas", "Courier New", monospace !important;
+.editor-instance .milkdown .ProseMirror ul,
+.editor-instance .milkdown .ProseMirror ol {
+  padding-left: 1.4em;
 }
 
-.editor-instance .vditor-reset pre,
-.editor-instance .vditor-ir pre:not(.vditor-reset):not(.vditor-ir__marker--pre),
-.editor-instance .vditor-wysiwyg pre:not(.vditor-reset) {
-  border: 1px solid #d2dbe7 !important;
-  border-radius: 16px !important;
-  padding: 16px 18px !important;
-  background: #eef2f7 !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+.editor-instance .milkdown .ProseMirror a {
+  color: var(--accent-strong);
 }
 
-.editor-instance .vditor-reset pre > code,
-.editor-instance .vditor-ir pre:not(.vditor-reset):not(.vditor-ir__marker--pre) > code,
-.editor-instance .vditor-wysiwyg pre:not(.vditor-reset) > code {
-  background: transparent !important;
-  background-image: none !important;
+.editor-instance .milkdown .ProseMirror img {
+  max-width: 100%;
+  border-radius: 16px;
 }
 
-.editor-instance .vditor-ir__marker--pre,
-.editor-instance .vditor-ir__marker--pre code {
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
+.editor-instance .milkdown .ProseMirror :not(pre) > code {
+  border: 1px solid #d4dce8;
+  border-radius: 8px;
+  padding: 0.12em 0.42em;
+  background: #e7ecf3;
+  color: #1f355f;
+  font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+  font-size: 0.875em;
 }
 
-.editor-instance .vditor-reset code:not(pre code),
-.editor-instance .vditor-ir code:not(pre code),
-.editor-instance .vditor-wysiwyg code:not(pre code) {
-  border-radius: 8px !important;
-  padding: 0.12em 0.42em !important;
-  background: #e7ecf3 !important;
-  border: 1px solid #d4dce8 !important;
-  color: #1f355f !important;
-}
-
-.editor-instance .vditor-reset table,
-.editor-instance .vditor-ir table,
-.editor-instance .vditor-wysiwyg table {
-  border-collapse: collapse !important;
-  width: 100% !important;
+.editor-instance .milkdown .ProseMirror table {
+  width: 100%;
+  border-collapse: collapse;
   overflow: hidden;
-  border-radius: 14px !important;
+  border-radius: 14px;
 }
 
-.editor-instance .vditor-reset table th,
-.editor-instance .vditor-ir table th,
-.editor-instance .vditor-wysiwyg table th,
-.editor-instance .vditor-reset table td,
-.editor-instance .vditor-ir table td,
-.editor-instance .vditor-wysiwyg table td {
-  border: 1px solid #dde6f0 !important;
-  padding: 10px 12px !important;
+.editor-instance .milkdown .ProseMirror th,
+.editor-instance .milkdown .ProseMirror td {
+  border: 1px solid #dde6f0;
+  padding: 10px 12px;
 }
 
-.editor-instance .vditor-reset table th,
-.editor-instance .vditor-ir table th,
-.editor-instance .vditor-wysiwyg table th {
-  background: transparent !important;
+.editor-instance .milkdown .ProseMirror th {
+  background: rgba(237, 244, 255, 0.58);
 }
 
-.editor-instance .vditor-reset table tr,
-.editor-instance .vditor-ir table tr,
-.editor-instance .vditor-wysiwyg table tr {
-  background: transparent !important;
+.editor-instance .milkdown .ProseMirror *::selection {
+  background: rgba(37, 99, 235, 0.16);
 }
 
-.editor-instance .vditor-reset kbd,
-.editor-instance .vditor-ir kbd,
-.editor-instance .vditor-wysiwyg kbd {
-  background: transparent !important;
+.editor-instance .milkdown .milkdown-code-block {
+  margin: 1.2em 0;
+  padding: 14px 18px 18px;
+  border: 1px solid #d2dbe7;
+  border-radius: 16px;
+  background: #eef2f7;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
-.editor-instance .vditor-reset a,
-.editor-instance .vditor-ir a,
-.editor-instance .vditor-wysiwyg a {
-  color: var(--accent-strong) !important;
+.editor-instance .milkdown .milkdown-code-block .tools {
+  margin-bottom: 10px;
 }
 
-.editor-instance .vditor-reset img,
-.editor-instance .vditor-ir img,
-.editor-instance .vditor-wysiwyg img {
-  max-width: 100% !important;
-  border-radius: 16px !important;
-}
-
-.editor-instance .vditor-ir__marker {
-  color: #8490a1 !important;
-  font-family: "Cascadia Code", "Consolas", "Courier New", monospace !important;
-  opacity: 0.84;
-}
-
-.editor-instance .vditor-ir__marker--heading,
-.editor-instance .vditor-ir__marker--bi,
-.editor-instance .vditor-ir__marker--link,
-.editor-instance .vditor-ir__marker--title,
-.editor-instance .vditor-ir__marker--paren,
-.editor-instance .vditor-ir__marker--bracket,
-.editor-instance .vditor-ir__marker--info {
-  color: #6e7b8d !important;
-}
-
-.editor-instance .vditor-ir__node--expand .vditor-ir__marker {
-  color: #5b6778 !important;
+.editor-instance .milkdown .milkdown-code-block .language-button,
+.editor-instance .milkdown .milkdown-code-block .tools .tools-button-group button {
   opacity: 1;
 }
 
-.editor-instance .vditor-ir__preview {
-  border-radius: 0 !important;
+.editor-instance .milkdown .milkdown-code-block .language-button {
+  background: #dde6f0;
+  color: #566173;
 }
 
-.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > .vditor-ir__preview,
-.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > pre.vditor-ir__preview {
-  margin: 0 0 1em !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  min-height: 0 !important;
+.editor-instance .milkdown .milkdown-code-block .tools .tools-button-group button {
+  background: #dde6f0;
+  color: #566173;
 }
 
-.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > .vditor-ir__preview > :first-child,
-.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > pre.vditor-ir__preview > :first-child {
-  margin-top: 0 !important;
+.editor-instance .milkdown .milkdown-code-block .cm-editor,
+.editor-instance .milkdown .milkdown-code-block .cm-gutters,
+.editor-instance .milkdown .milkdown-code-block .cm-activeLine,
+.editor-instance .milkdown .milkdown-code-block .cm-activeLineGutter {
+  background: transparent;
 }
 
-.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > .vditor-ir__preview > :last-child,
-.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > pre.vditor-ir__preview > :last-child {
-  margin-bottom: 0 !important;
+.editor-instance .milkdown .milkdown-code-block .cm-editor {
+  font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+  font-size: 14px;
 }
 
-.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > .vditor-ir__preview h1,
-.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > .vditor-ir__preview h2,
-.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > pre.vditor-ir__preview h1,
-.editor-instance .vditor-ir .vditor-ir__node[data-type="html-block"] > pre.vditor-ir__preview h2 {
-  padding-bottom: 0 !important;
-  border-bottom: 0 !important;
+.editor-instance .milkdown .milkdown-code-block .cm-content,
+.editor-instance .milkdown .milkdown-code-block .cm-gutters {
+  font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
 }
 
-.editor-instance .vditor-counter {
-  color: var(--muted) !important;
-  background: #ffffff !important;
+.editor-instance .milkdown .milkdown-code-block .cm-focused {
+  outline: none;
 }
 
-.editor-instance .vditor-wysiwyg:focus,
-.editor-instance .vditor-ir:focus,
-.editor-instance .vditor-sv:focus,
-.editor-instance .vditor-content:focus {
-  outline: none !important;
+.editor-instance .milkdown .milkdown-code-block.selected,
+.editor-instance .milkdown .ProseMirror-selectednode {
+  outline-color: #8fb2ff;
 }
 
 .empty-state {
@@ -1215,7 +1109,7 @@ button {
   .app-statusbar,
   .sync-banner,
   .editor-meta,
-  .editor-instance .vditor-toolbar {
+  .milkdown-toolbar {
     display: none !important;
   }
 
@@ -1223,14 +1117,11 @@ button {
   .editor-pane,
   .editor-surface,
   .editor-instance,
-  .vditor-host,
-  .editor-instance .vditor,
-  .editor-instance .vditor--fullscreen,
-  .editor-instance .vditor-content,
-  .editor-instance .vditor-preview,
-  .editor-instance .vditor-wysiwyg,
-  .editor-instance .vditor-ir,
-  .editor-instance .vditor-sv {
+  .milkdown-editor,
+  .milkdown-surface,
+  .milkdown-surface [data-milkdown-root],
+  .editor-instance .milkdown,
+  .editor-instance .milkdown .ProseMirror {
     width: 100% !important;
     max-width: none !important;
     height: auto !important;
@@ -1247,47 +1138,22 @@ button {
     gap: 0 !important;
   }
 
-  .editor-instance .vditor,
-  .editor-instance .vditor--fullscreen {
-    position: static !important;
-    inset: auto !important;
-  }
-
-  .editor-instance .vditor-content {
-    display: block !important;
-  }
-
-  .editor-instance .vditor-preview {
-    margin-left: 0 !important;
-    border-left: 0 !important;
-    border-radius: 0 !important;
-  }
-
-  .editor-instance .vditor-content,
-  .editor-instance .vditor-preview,
-  .editor-instance .vditor-wysiwyg,
-  .editor-instance .vditor-ir,
-  .editor-instance .vditor-sv {
+  .milkdown-surface,
+  .editor-instance .milkdown,
+  .editor-instance .milkdown .ProseMirror {
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
   }
 
-  .editor-instance .vditor-content::-webkit-scrollbar,
-  .editor-instance .vditor-preview::-webkit-scrollbar,
-  .editor-instance .vditor-wysiwyg::-webkit-scrollbar,
-  .editor-instance .vditor-ir::-webkit-scrollbar,
-  .editor-instance .vditor-sv::-webkit-scrollbar {
+  .milkdown-surface::-webkit-scrollbar,
+  .editor-instance .milkdown::-webkit-scrollbar,
+  .editor-instance .milkdown .ProseMirror::-webkit-scrollbar {
     width: 0 !important;
     height: 0 !important;
     display: none !important;
   }
 
-  .editor-instance .vditor-wysiwyg,
-  .editor-instance .vditor-ir,
-  .editor-instance .vditor-sv,
-  .editor-instance .vditor-preview > .vditor-reset {
-    width: 100% !important;
-    max-width: none !important;
+  .editor-instance .milkdown .ProseMirror {
     margin: 0 !important;
     padding: 0 !important;
   }

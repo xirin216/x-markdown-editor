@@ -11,7 +11,7 @@ export default defineConfig(async () => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          editor: ["vditor"],
+          editor: ["@milkdown/crepe", "@milkdown/react", "@milkdown/kit"],
           react: ["react", "react-dom"],
           tauri: ["@tauri-apps/api", "@tauri-apps/plugin-dialog"],
         },
