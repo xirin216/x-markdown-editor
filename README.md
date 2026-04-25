@@ -1,47 +1,129 @@
-<h1 align="right">asdf</h1>
-
-
 # X Markdown Editor
 
-Windows-first markdown editor built with `Tauri 2`, `React`, `TypeScript`, `Milkdown`, and a small `Rust` backend for file operations, search, drag-and-drop classification, and file watching.
+X Markdown Editor is a Windows-first Markdown editor for opening, editing, searching, and printing `.md` and `.markdown` files from anywhere on disk. It is built as a Tauri desktop application with a React frontend and a small Rust backend for native file operations, file watching, workspace search, system font discovery, and Windows packaging.
 
-## What it does
+A Korean version of this document is available in [README.ko.md](README.ko.md).
 
-- Opens `.md` and `.markdown` files from any path on disk
-- Opens one workspace folder for recursive markdown search
-- Shows a collapsible left sidebar with `Search` and `Outline`
-- Edits Markdown in a hybrid `Milkdown + Crepe` surface with a reduced toolbar
-- Accepts drag-and-drop for markdown files and one folder workspace
-- Builds a Windows `NSIS` installer package
+## Features
 
-## Development
+- Open `.md` and `.markdown` files directly from disk.
+- Register as a Windows file association target for Markdown files.
+- Open a workspace folder and search Markdown files recursively.
+- Use a collapsible left panel for Search and Outline navigation.
+- Edit Markdown with a Milkdown and Crepe based editor surface.
+- Toggle the formatting toolbar from the top bar.
+- Preview raw HTML blocks in Markdown while sanitizing rendered HTML.
+- Hide native spellcheck underlines in the editor surface.
+- Drag and drop Markdown files or one workspace folder.
+- Watch opened files and workspace files for external changes.
+- Choose a system font from a searchable, paginated font browser.
+- Persist editor font, text size, page width, toolbar visibility, and related editor settings.
+- Print with editor width, font family, and text size applied to the print layout.
+- Build a Windows NSIS installer.
+
+## Libraries
+
+Frontend:
+
+- React 19
+- React DOM
+- TypeScript
+- Vite
+- Milkdown Crepe, Kit, and React bindings
+- DOMPurify
+- Tauri JavaScript API
+- Tauri dialog plugin API
+
+Backend and desktop:
+
+- Tauri 2
+- Rust
+- Serde and serde_json
+- notify
+- walkdir
+- font-kit
+- winreg on Windows
+- tempfile for Rust tests
+
+## Languages
+
+- TypeScript and JSX for the frontend application.
+- CSS for layout, editor styling, responsive settings UI, and print styling.
+- Rust 2021 for native commands, file watching, file classification, workspace search, system font listing, and launch argument handling.
+- JSON and TOML for Tauri, npm, and Cargo configuration.
+
+## Development Environment
+
+Recommended environment:
+
+- Windows 10 or Windows 11
+- Node.js with npm
+- Rust stable toolchain
+- Microsoft C++ Build Tools or Visual Studio Build Tools for Rust/Tauri builds
+- WebView2 Runtime
+- NSIS tooling as managed by the Tauri bundler
+
+The app is configured as a Tauri 2 desktop app with a Vite dev server at `http://localhost:1420`.
+
+## Install Dependencies
 
 ```powershell
 npm.cmd install
+```
+
+## Run In Development
+
+Run the full Tauri desktop app:
+
+```powershell
 npm.cmd run tauri dev
+```
+
+Run only the Vite frontend server:
+
+```powershell
+npm.cmd run dev
 ```
 
 ## Build
 
-Frontend only:
+Build the frontend only:
 
 ```powershell
 npm.cmd run build
 ```
 
-Windows desktop bundle:
+Run Rust tests:
+
+```powershell
+cd src-tauri
+cargo test
+```
+
+Build the Windows desktop installer:
 
 ```powershell
 npm.cmd run package:windows
 ```
 
-The packaged installer is generated under `src-tauri\target\release\bundle\nsis\`.
+The same Windows packaging command is also available through:
 
-## Packaging notes
+```powershell
+build-windows.bat
+```
 
-- Installer target: `NSIS`
-- Install mode: `currentUser`
-- WebView2: uses Tauri's standard Windows setup flow
-- Auto updater: not enabled in v1
-- Microsoft Store packaging: not configured in v1
-- Code signing: not wired yet, but release flow is structured so a signing step can be inserted later
+The generated NSIS installer is written to:
+
+```text
+src-tauri\target\release\bundle\nsis\
+```
+
+## Windows Packaging Notes
+
+- Bundle target: NSIS
+- Install mode: per-machine
+- Expected install location: Program Files
+- Administrator permission: required during installation
+- File associations: `.md` and `.markdown`
+- Code signing: not configured
+- Auto updater: not configured
