@@ -2,6 +2,7 @@ import {
   startTransition,
   useDeferredValue,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -13,6 +14,7 @@ import { confirm, message, open } from "@tauri-apps/plugin-dialog";
 import {
   WATCH_EVENT_NAME,
   classifyDropPaths,
+  listSystemFontsCommand,
   openFileCommand,
   openWorkspaceCommand,
   saveFileCommand,
@@ -49,17 +51,36 @@ type LineJump = {
 const EDITOR_WIDTH_STORAGE_KEY = "x-markdown-editor.editor-width";
 const EDITOR_WIDTH_MODE_STORAGE_KEY = "x-markdown-editor.editor-width-mode";
 const EDITOR_FONT_SIZE_STORAGE_KEY = "x-markdown-editor.editor-font-size";
+const EDITOR_FONT_FAMILY_STORAGE_KEY = "x-markdown-editor.editor-font-family";
 const MIN_EDITOR_WIDTH = 900;
 const MAX_EDITOR_WIDTH = 1800;
 const DEFAULT_EDITOR_WIDTH = 1240;
 const MIN_EDITOR_FONT_SIZE = 13;
 const MAX_EDITOR_FONT_SIZE = 22;
 const DEFAULT_EDITOR_FONT_SIZE = 16;
+const DEFAULT_EDITOR_FONT_FAMILY = "Sitka Text";
+const FONT_PAGE_SIZE = 8;
 
 type EditorWidthMode = "bounded" | "full";
 
+const fallbackEditorFonts = [
+  "Sitka Text",
+  "Georgia",
+  "Segoe UI",
+  "Malgun Gothic",
+  "Cascadia Code",
+];
+
+const legacyEditorFontFamilies: Record<string, string> = {
+  sitka: "Sitka Text",
+  georgia: "Georgia",
+  segoe: "Segoe UI",
+  malgun: "Malgun Gothic",
+  cascadia: "Cascadia Code",
+};
+
 const defaultSidebarState: SidebarState = {
-  open: true,
+  open: false,
   activePanel: "search",
 };
 
@@ -92,6 +113,15 @@ function App() {
   );
   const [editorWidth, setEditorWidth] = useState(readStoredEditorWidth);
   const [editorFontSize, setEditorFontSize] = useState(readStoredEditorFontSize);
+  const [editorFontFamily, setEditorFontFamily] = useState(
+    readStoredEditorFontFamily,
+  );
+  const [systemFonts, setSystemFonts] = useState<string[]>([]);
+  const [systemFontsLoaded, setSystemFontsLoaded] = useState(false);
+  const [fontLoading, setFontLoading] = useState(false);
+  const [fontNotice, setFontNotice] = useState("");
+  const [fontQuery, setFontQuery] = useState("");
+  const [fontPage, setFontPage] = useState(0);
 
   const tabsRef = useRef(tabs);
   const workspaceRef = useRef(workspace);
@@ -123,9 +153,42 @@ function App() {
     : workspace
       ? normalizeDisplayPath(workspace.rootPath)
       : "No file open";
+  const activeFileScopeLabel = activeTab
+    ? activeTab.inWorkspace
+      ? "Workspace file"
+      : "Standalone file"
+    : "No active file";
+  const activeSaveStateLabel = activeTab
+    ? activeTab.dirty
+      ? "Unsaved changes"
+      : "Saved"
+    : "Hybrid markdown editor";
+  const topbarLocationLabel = activeTab
+    ? normalizeDisplayPath(activeTab.path)
+    : workspace
+      ? `Workspace: ${normalizeDisplayPath(workspace.rootPath)}`
+      : "Open a file to begin editing.";
   const activeWidthLabel =
     editorWidthMode === "full" ? "Fit window" : `${editorWidth}px`;
-  const activeFontLabel = `${editorFontSize}px`;
+  const activeTextSizeLabel = `${editorFontSize}px`;
+  const activeFontLabel = editorFontFamily;
+  const fontChoices = useMemo(
+    () => buildFontChoices(systemFonts, editorFontFamily),
+    [editorFontFamily, systemFonts],
+  );
+  const filteredFontChoices = useMemo(
+    () => filterFontChoices(fontChoices, fontQuery),
+    [fontChoices, fontQuery],
+  );
+  const fontPageCount = Math.max(
+    1,
+    Math.ceil(filteredFontChoices.length / FONT_PAGE_SIZE),
+  );
+  const currentFontPage = Math.min(fontPage, fontPageCount - 1);
+  const pagedFontChoices = filteredFontChoices.slice(
+    currentFontPage * FONT_PAGE_SIZE,
+    currentFontPage * FONT_PAGE_SIZE + FONT_PAGE_SIZE,
+  );
   const editorPaneStyle = {
     "--editor-content-width":
       editorWidthMode === "full"
@@ -133,6 +196,7 @@ function App() {
         : `${clampEditorWidth(editorWidth)}px`,
     "--editor-content-padding": editorWidthMode === "full" ? "18px" : "44px",
     "--editor-font-size": `${clampEditorFontSize(editorFontSize)}px`,
+    "--editor-font-family": toCssFontFamily(editorFontFamily),
   } as CSSProperties;
 
   useEffect(() => {
@@ -156,6 +220,51 @@ function App() {
       String(clampEditorFontSize(editorFontSize)),
     );
   }, [editorFontSize]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      EDITOR_FONT_FAMILY_STORAGE_KEY,
+      editorFontFamily,
+    );
+  }, [editorFontFamily]);
+
+  async function loadSystemFonts() {
+    if (systemFontsLoaded || fontLoading) {
+      return;
+    }
+
+    setFontLoading(true);
+    setFontNotice("Loading system fonts...");
+
+    try {
+      const fonts = await listSystemFontsCommand();
+      setSystemFonts(fonts);
+      setSystemFontsLoaded(true);
+      setFontNotice(
+        fonts.length === 0
+          ? "No system fonts found. Showing fallback fonts."
+          : `${fonts.length} system fonts loaded.`,
+      );
+    } catch (error) {
+      setSystemFontsLoaded(true);
+      setFontNotice(`Could not load system fonts. ${asErrorMessage(error)}`);
+    } finally {
+      setFontLoading(false);
+    }
+  }
+
+  function toggleSettingsPanel() {
+    const nextSettingsOpen = !settingsOpen;
+    setSettingsOpen(nextSettingsOpen);
+
+    if (nextSettingsOpen) {
+      void loadSystemFonts();
+    }
+  }
+
+  useEffect(() => {
+    setFontPage((currentPage) => Math.min(currentPage, fontPageCount - 1));
+  }, [fontPageCount]);
 
   useEffect(() => {
     if (!activeTab) {
@@ -828,8 +937,21 @@ function App() {
     setEditorFontSize(clampEditorFontSize(Number(event.currentTarget.value)));
   }
 
+  function handleFontSearchChange(event: ChangeEvent<HTMLInputElement>) {
+    setFontQuery(event.currentTarget.value);
+    setFontPage(0);
+  }
+
+  function selectEditorFontFamily(fontFamily: string) {
+    setEditorFontFamily(coerceEditorFontFamily(fontFamily));
+  }
+
   function resetEditorFontSize() {
     setEditorFontSize(DEFAULT_EDITOR_FONT_SIZE);
+  }
+
+  function resetEditorFontFamily() {
+    setEditorFontFamily(DEFAULT_EDITOR_FONT_FAMILY);
   }
 
   const dragCopyText =
@@ -859,39 +981,6 @@ function App() {
       <aside
         className={`sidebar ${sidebarState.open ? "sidebar--open" : "sidebar--closed"}`}
       >
-        <div className="sidebar-rail">
-          <button
-            type="button"
-            className={sidebarButtonClass(
-              sidebarState.open && sidebarState.activePanel === "search",
-            )}
-            onClick={() => toggleSidebarPanel("search")}
-          >
-            Search
-          </button>
-          <button
-            type="button"
-            className={sidebarButtonClass(
-              sidebarState.open && sidebarState.activePanel === "outline",
-            )}
-            onClick={() => toggleSidebarPanel("outline")}
-          >
-            Outline
-          </button>
-          <button
-            type="button"
-            className="sidebar-rail__button sidebar-rail__button--ghost"
-            onClick={() =>
-              setSidebarState((currentSidebar) => ({
-                ...currentSidebar,
-                open: !currentSidebar.open,
-              }))
-            }
-          >
-            {sidebarState.open ? "Hide" : "Show"}
-          </button>
-        </div>
-
         <div className="sidebar-panel">
           <div className="sidebar-panel__header">
             <div>
@@ -981,14 +1070,32 @@ function App() {
       <main className="workspace">
         <div className="tabs">
           <div className="tabs__main">
-            <div className="tabs__brand">
-              <strong>x markdown editor</strong>
-              <span>{activeLocationLabel}</span>
+            <div className="tabs__panel-switcher" aria-label="Sidebar panels">
+              <button
+                type="button"
+                className={topbarPanelButtonClass(
+                  sidebarState.open && sidebarState.activePanel === "search",
+                )}
+                aria-pressed={sidebarState.open && sidebarState.activePanel === "search"}
+                onClick={() => toggleSidebarPanel("search")}
+              >
+                Search
+              </button>
+              <button
+                type="button"
+                className={topbarPanelButtonClass(
+                  sidebarState.open && sidebarState.activePanel === "outline",
+                )}
+                aria-pressed={sidebarState.open && sidebarState.activePanel === "outline"}
+                onClick={() => toggleSidebarPanel("outline")}
+              >
+                Outline
+              </button>
             </div>
             <div className="tabs__list">
               {tabs.length === 0 ? (
                 <div className="tabs__empty">
-                  Drop a markdown file anywhere on the window, or open one from disk.
+                  Drop a markdown file, or open one from disk.
                 </div>
               ) : (
                 tabs.map((tab) => (
@@ -1015,14 +1122,26 @@ function App() {
                 ))
               )}
             </div>
+            <div
+              className="tabs__document-path"
+              title={activeTab?.path ?? workspace?.rootPath ?? topbarLocationLabel}
+            >
+              {topbarLocationLabel}
+            </div>
           </div>
           <div className="tabs__actions">
+            <div className="tabs__badges" aria-label="Active document status">
+              <span className={activeTab?.inWorkspace ? "meta-pill" : "meta-pill meta-pill--muted"}>
+                {activeFileScopeLabel}
+              </span>
+              <span className="meta-pill meta-pill--muted">{activeSaveStateLabel}</span>
+            </div>
             <button
               type="button"
               className={`tabs__settings-button ${settingsOpen ? "is-active" : ""}`}
               aria-expanded={settingsOpen}
               aria-label="Toggle editor settings"
-              onClick={() => setSettingsOpen((current) => !current)}
+              onClick={toggleSettingsPanel}
             >
               {settingsOpen ? "Hide settings" : "Settings"}
             </button>
@@ -1061,8 +1180,73 @@ function App() {
                     onChange={handleEditorFontSizeChange}
                     aria-label="Adjust editor text size"
                   />
-                  <strong>{activeFontLabel}</strong>
+                  <strong>{activeTextSizeLabel}</strong>
                 </label>
+                <div className="font-browser">
+                  <div className="font-browser__header">
+                    <label className="font-search">
+                      <span>Font</span>
+                      <input
+                        type="search"
+                        placeholder="Search system fonts..."
+                        value={fontQuery}
+                        onChange={handleFontSearchChange}
+                      />
+                    </label>
+                    <span className="font-browser__count">
+                      {fontLoading
+                        ? "Loading..."
+                        : `${filteredFontChoices.length} font${
+                            filteredFontChoices.length === 1 ? "" : "s"
+                          }`}
+                    </span>
+                  </div>
+                  <div className="font-browser__list">
+                    {pagedFontChoices.length === 0 ? (
+                      <div className="font-browser__empty">No fonts match.</div>
+                    ) : (
+                      pagedFontChoices.map((fontFamily) => (
+                        <button
+                          key={fontFamily}
+                          type="button"
+                          className={`font-choice ${
+                            fontFamily === editorFontFamily ? "is-active" : ""
+                          }`}
+                          style={{ fontFamily: toCssFontFamily(fontFamily) }}
+                          onClick={() => selectEditorFontFamily(fontFamily)}
+                        >
+                          <span>{fontFamily}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <div className="font-browser__footer">
+                    <span>{fontNotice}</span>
+                    <div className="font-browser__pager">
+                      <button
+                        type="button"
+                        onClick={() => setFontPage((page) => Math.max(0, page - 1))}
+                        disabled={currentFontPage === 0}
+                      >
+                        Prev
+                      </button>
+                      <strong>
+                        {currentFontPage + 1} / {fontPageCount}
+                      </strong>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFontPage((page) =>
+                            Math.min(fontPageCount - 1, page + 1),
+                          )
+                        }
+                        disabled={currentFontPage >= fontPageCount - 1}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <div className="view-options" aria-label="Editor controls">
                   <button
                     type="button"
@@ -1083,6 +1267,9 @@ function App() {
                   </button>
                   <button type="button" onClick={resetEditorFontSize}>
                     Text reset
+                  </button>
+                  <button type="button" onClick={resetEditorFontFamily}>
+                    Font reset
                   </button>
                 </div>
               </div>
@@ -1114,30 +1301,6 @@ function App() {
           style={editorPaneStyle}
         >
           <div className="editor-surface">
-            <div className="editor-meta">
-              <div className="editor-meta__text">
-                <strong>{activeTab?.title ?? "No markdown file open"}</strong>
-                <span>{activeTab ? normalizeDisplayPath(activeTab.path) : "Open a file to begin editing."}</span>
-              </div>
-              <div className="editor-meta__badges">
-                {activeTab ? (
-                  activeTab.inWorkspace ? (
-                    <span className="meta-pill">Workspace file</span>
-                  ) : (
-                    <span className="meta-pill meta-pill--muted">Standalone file</span>
-                  )
-                ) : (
-                  <span className="meta-pill meta-pill--muted">No active file</span>
-                )}
-                <span className="meta-pill meta-pill--muted">
-                  {activeTab
-                    ? activeTab.dirty
-                      ? "Unsaved changes"
-                      : "Saved"
-                    : "Hybrid markdown editor"}
-                </span>
-              </div>
-            </div>
             <div className="editor-instance">
               {!activeTab ? (
                 <div className="empty-state">
@@ -1163,7 +1326,7 @@ function App() {
                   key={activeTab.path}
                   value={activeTab.content}
                   onChange={handleEditorChange}
-                  autofocus
+                  autofocus={!settingsOpen}
                   jumpNeedle={activeJumpNeedle}
                   jumpKey={activeJumpKey}
                   onJumpHandled={() => setPendingJump(null)}
@@ -1178,8 +1341,15 @@ function App() {
         <footer className="app-statusbar">
           <span>{statusMessage}</span>
           <span>Width: {activeWidthLabel}</span>
-          <span>Text: {activeFontLabel}</span>
-          <span>{sidebarState.activePanel === "search" ? "Search panel" : "Outline panel"}</span>
+          <span>Text: {activeTextSizeLabel}</span>
+          <span>Font: {activeFontLabel}</span>
+          <span>
+            {sidebarState.open
+              ? sidebarState.activePanel === "search"
+                ? "Search panel"
+                : "Outline panel"
+              : "Panel hidden"}
+          </span>
           <span>Ctrl+O Open</span>
           <span>Ctrl+Shift+O Folder</span>
           <span>Ctrl+S Save</span>
@@ -1205,8 +1375,8 @@ function App() {
   );
 }
 
-function sidebarButtonClass(active: boolean) {
-  return `sidebar-rail__button ${active ? "sidebar-rail__button--active" : ""}`;
+function topbarPanelButtonClass(active: boolean) {
+  return `tabs__panel-button ${active ? "is-active" : ""}`;
 }
 
 function normalizeDisplayPath(path: string) {
@@ -1238,6 +1408,51 @@ function clampEditorWidth(value: number) {
 
 function clampEditorFontSize(value: number) {
   return Math.min(MAX_EDITOR_FONT_SIZE, Math.max(MIN_EDITOR_FONT_SIZE, value));
+}
+
+function coerceEditorFontFamily(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return DEFAULT_EDITOR_FONT_FAMILY;
+  }
+
+  return legacyEditorFontFamilies[trimmed.toLowerCase()] ?? trimmed;
+}
+
+function buildFontChoices(systemFonts: string[], selectedFontFamily: string) {
+  const fontMap = new Map<string, string>();
+
+  for (const fontFamily of [
+    selectedFontFamily,
+    ...(systemFonts.length > 0 ? systemFonts : fallbackEditorFonts),
+  ]) {
+    const normalized = fontFamily.trim();
+    if (!normalized) {
+      continue;
+    }
+
+    fontMap.set(normalized.toLowerCase(), normalized);
+  }
+
+  return Array.from(fontMap.values()).sort((left, right) =>
+    left.localeCompare(right, undefined, { sensitivity: "base" }),
+  );
+}
+
+function filterFontChoices(fontChoices: string[], query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return fontChoices;
+  }
+
+  return fontChoices.filter((fontFamily) =>
+    fontFamily.toLowerCase().includes(normalizedQuery),
+  );
+}
+
+function toCssFontFamily(fontFamily: string) {
+  const escapedFamily = fontFamily.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `"${escapedFamily}", "Malgun Gothic", "Segoe UI", sans-serif`;
 }
 
 function readStoredEditorWidth() {
@@ -1274,6 +1489,17 @@ function readStoredEditorFontSize() {
   }
 
   return clampEditorFontSize(stored);
+}
+
+function readStoredEditorFontFamily() {
+  if (typeof window === "undefined") {
+    return DEFAULT_EDITOR_FONT_FAMILY;
+  }
+
+  return coerceEditorFontFamily(
+    window.localStorage.getItem(EDITOR_FONT_FAMILY_STORAGE_KEY) ??
+      DEFAULT_EDITOR_FONT_FAMILY,
+  );
 }
 
 export default App;

@@ -1,3 +1,4 @@
+use font_kit::source::SystemSource;
 use notify::{recommended_watcher, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::collections::HashSet;
@@ -181,6 +182,119 @@ pub fn watch_paths(
 #[tauri::command]
 pub fn classify_drop_paths(paths: Vec<String>) -> Result<DropClassification, String> {
     classify_paths(paths)
+}
+
+#[tauri::command]
+pub fn list_system_fonts() -> Result<Vec<String>, String> {
+    let source = SystemSource::new();
+    let mut families = source.all_families().unwrap_or_default();
+    families.extend(list_platform_font_families()?);
+
+    let families = normalize_font_families(families);
+
+    Ok(families)
+}
+
+fn normalize_font_families(families: Vec<String>) -> Vec<String> {
+    let mut normalized = families
+        .into_iter()
+        .filter_map(|family| {
+            let trimmed = family.trim();
+            if trimmed.is_empty() || trimmed.starts_with('@') {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        })
+        .collect::<Vec<_>>();
+
+    normalized.sort_by_key(|family| family.to_lowercase());
+    normalized.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+    normalized
+}
+
+#[cfg(target_os = "windows")]
+fn list_platform_font_families() -> Result<Vec<String>, String> {
+    use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ};
+    use winreg::RegKey;
+
+    const FONT_REGISTRY_PATH: &str = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts";
+
+    let roots = [
+        RegKey::predef(HKEY_LOCAL_MACHINE),
+        RegKey::predef(HKEY_CURRENT_USER),
+    ];
+    let mut families = Vec::new();
+
+    for root in roots {
+        let Ok(fonts_key) = root.open_subkey_with_flags(FONT_REGISTRY_PATH, KEY_READ) else {
+            continue;
+        };
+
+        for value in fonts_key.enum_values().filter_map(Result::ok) {
+            if let Some(family) = font_registry_name_to_family(&value.0) {
+                families.push(family);
+            }
+        }
+    }
+
+    Ok(families)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn list_platform_font_families() -> Result<Vec<String>, String> {
+    Ok(Vec::new())
+}
+
+#[cfg(target_os = "windows")]
+fn font_registry_name_to_family(registry_name: &str) -> Option<String> {
+    let base_name = registry_name
+        .split(" (")
+        .next()
+        .unwrap_or(registry_name)
+        .trim();
+    if base_name.is_empty() || base_name.starts_with('@') {
+        return None;
+    }
+
+    let mut family = base_name.to_string();
+    for suffix in [
+        " Bold Italic",
+        " Bold Oblique",
+        " SemiBold Italic",
+        " Semibold Italic",
+        " Semi Bold Italic",
+        " Light Italic",
+        " Regular Italic",
+        " Black Italic",
+        " Medium Italic",
+        " Condensed Italic",
+        " Narrow Italic",
+        " Bold",
+        " Oblique",
+        " Italic",
+        " Regular",
+        " SemiBold",
+        " Semibold",
+        " Semi Bold",
+        " Light",
+        " Black",
+        " Medium",
+        " Condensed",
+        " Narrow",
+    ] {
+        if family.ends_with(suffix) {
+            family.truncate(family.len() - suffix.len());
+            break;
+        }
+    }
+
+    let family = family.trim();
+    if family.is_empty() {
+        None
+    } else {
+        Some(family.to_string())
+    }
 }
 
 fn handle_watch_result(app: &AppHandle, result: notify::Result<Event>) -> Result<(), String> {
