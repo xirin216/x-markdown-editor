@@ -289,7 +289,12 @@ button {
 }
 
 .app-header--panel {
+  align-items: flex-start;
   padding: 16px 18px;
+}
+
+.app-header--panel .app-brand {
+  padding-top: 6px;
 }
 
 .app-brand {
@@ -451,6 +456,34 @@ button {
 .font-browser__footer {
   color: var(--muted);
   font-size: 12px;
+}
+
+.font-browser__current {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid rgba(216, 224, 234, 0.72);
+  border-radius: 10px;
+  background: #f7faff;
+}
+
+.font-browser__current span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.font-browser__current strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .font-browser__list {
@@ -912,7 +945,11 @@ button {
 
 .editor-instance .milkdown .ProseMirror p,
 .editor-instance .milkdown .ProseMirror li,
-.editor-instance .milkdown .ProseMirror blockquote {
+.editor-instance .milkdown .ProseMirror blockquote,
+.editor-instance .milkdown .ProseMirror table,
+.editor-instance .milkdown .ProseMirror th,
+.editor-instance .milkdown .ProseMirror td {
+  font-size: 1em;
   line-height: 1.78;
 }
 
@@ -956,6 +993,18 @@ button {
   margin-top: 1.3em;
   margin-bottom: 0.5em;
   font-size: 1.12em;
+}
+
+.editor-instance .milkdown .ProseMirror h5 {
+  margin-top: 1.2em;
+  margin-bottom: 0.45em;
+  font-size: 1em;
+}
+
+.editor-instance .milkdown .ProseMirror h6 {
+  margin-top: 1.1em;
+  margin-bottom: 0.42em;
+  font-size: 0.92em;
 }
 
 .editor-instance .milkdown .ProseMirror blockquote {
@@ -1169,12 +1218,14 @@ button {
 
 .editor-instance .milkdown .milkdown-code-block .cm-editor {
   font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
-  font-size: 14px;
+  font-size: 0.92em;
+  line-height: 1.55;
 }
 
 .editor-instance .milkdown .milkdown-code-block .cm-content,
 .editor-instance .milkdown .milkdown-code-block .cm-gutters {
   font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+  font-size: 1em;
 }
 
 .editor-instance .milkdown .milkdown-code-block .cm-focused {
@@ -1473,7 +1524,71 @@ button {
   }
 
   .editor-instance .milkdown .ProseMirror {
-    margin: 0 !important;
+    width: min(100%, var(--editor-content-width)) !important;
+    max-width: var(--editor-content-width) !important;
+    margin: 0 auto !important;
+    padding: 0 var(--editor-content-padding) !important;
+  }
+
+  .editor-instance .milkdown .milkdown-code-block {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    break-inside: auto;
+    page-break-inside: auto;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  .editor-instance .milkdown .milkdown-code-block .copy-button {
+    display: none !important;
+  }
+
+  .editor-instance .milkdown .milkdown-code-block .tools-button-group {
+    display: none !important;
+  }
+
+  .editor-instance .milkdown .milkdown-code-block .codemirror-host,
+  .editor-instance .milkdown .milkdown-code-block .cm-editor,
+  .editor-instance .milkdown .milkdown-code-block .cm-scroller,
+  .editor-instance .milkdown .milkdown-code-block .cm-content,
+  .editor-instance .milkdown .milkdown-code-block .cm-gutters {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .editor-instance .milkdown .milkdown-code-block .cm-editor {
+    display: block !important;
+  }
+
+  .editor-instance .milkdown .milkdown-code-block .cm-scroller {
+    display: block !important;
+  }
+
+  .editor-instance .milkdown .milkdown-code-block .cm-gutters,
+  .editor-instance .milkdown .milkdown-code-block .cm-gutter,
+  .editor-instance .milkdown .milkdown-code-block .cm-layer,
+  .editor-instance .milkdown .milkdown-code-block .cm-selectionLayer,
+  .editor-instance .milkdown .milkdown-code-block .cm-cursorLayer {
+    display: none !important;
+  }
+
+  .editor-instance .milkdown .milkdown-code-block .cm-content {
+    display: block !important;
     padding: 0 !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .editor-instance .milkdown .milkdown-code-block .cm-line {
+    display: block !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
   }
 }

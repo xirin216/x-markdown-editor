@@ -55,9 +55,9 @@ const EDITOR_FONT_FAMILY_STORAGE_KEY = "x-markdown-editor.editor-font-family";
 const MIN_EDITOR_WIDTH = 900;
 const MAX_EDITOR_WIDTH = 1800;
 const DEFAULT_EDITOR_WIDTH = 1240;
-const MIN_EDITOR_FONT_SIZE = 13;
-const MAX_EDITOR_FONT_SIZE = 22;
 const DEFAULT_EDITOR_FONT_SIZE = 16;
+const MIN_EDITOR_FONT_SIZE = DEFAULT_EDITOR_FONT_SIZE - 10;
+const MAX_EDITOR_FONT_SIZE = DEFAULT_EDITOR_FONT_SIZE + 10;
 const DEFAULT_EDITOR_FONT_FAMILY = "Sitka Text";
 const FONT_PAGE_SIZE = 8;
 
@@ -170,7 +170,7 @@ function App() {
       : "Open a file to begin editing.";
   const activeWidthLabel =
     editorWidthMode === "full" ? "Fit window" : `${editorWidth}px`;
-  const activeTextSizeLabel = `${editorFontSize}px`;
+  const activeTextSizeLabel = formatEditorTextScale(editorFontSize);
   const activeFontLabel = editorFontFamily;
   const fontChoices = useMemo(
     () => buildFontChoices(systemFonts, editorFontFamily),
@@ -189,15 +189,32 @@ function App() {
     currentFontPage * FONT_PAGE_SIZE,
     currentFontPage * FONT_PAGE_SIZE + FONT_PAGE_SIZE,
   );
+  const editorContentWidth =
+    editorWidthMode === "full"
+      ? "calc(100% - 24px)"
+      : `${clampEditorWidth(editorWidth)}px`;
+  const editorContentPadding = editorWidthMode === "full" ? "18px" : "44px";
+  const editorBaseFontSize = `${clampEditorFontSize(editorFontSize)}px`;
+  const editorFontFamilyCss = toCssFontFamily(editorFontFamily);
   const editorPaneStyle = {
-    "--editor-content-width":
-      editorWidthMode === "full"
-        ? "calc(100% - 24px)"
-        : `${clampEditorWidth(editorWidth)}px`,
-    "--editor-content-padding": editorWidthMode === "full" ? "18px" : "44px",
-    "--editor-font-size": `${clampEditorFontSize(editorFontSize)}px`,
-    "--editor-font-family": toCssFontFamily(editorFontFamily),
+    "--editor-content-width": editorContentWidth,
+    "--editor-content-padding": editorContentPadding,
+    "--editor-font-size": editorBaseFontSize,
+    "--editor-font-family": editorFontFamilyCss,
   } as CSSProperties;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--editor-content-width", editorContentWidth);
+    root.style.setProperty("--editor-content-padding", editorContentPadding);
+    root.style.setProperty("--editor-font-size", editorBaseFontSize);
+    root.style.setProperty("--editor-font-family", editorFontFamilyCss);
+  }, [
+    editorBaseFontSize,
+    editorContentPadding,
+    editorContentWidth,
+    editorFontFamilyCss,
+  ]);
 
   useEffect(() => {
     document.title = `${activeTab?.title ?? "untitled.md"} - x markdown editor`;
@@ -977,7 +994,7 @@ function App() {
     : undefined;
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={editorPaneStyle}>
       <aside
         className={`sidebar ${sidebarState.open ? "sidebar--open" : "sidebar--closed"}`}
       >
@@ -1152,7 +1169,6 @@ function App() {
           <header className="app-header app-header--panel">
             <div className="app-brand">
               <strong className="app-title">Editor settings</strong>
-              <span className="app-subtitle">{activeLocationLabel}</span>
             </div>
             <div className="app-controls">
               <div className="width-controls">
@@ -1170,7 +1186,7 @@ function App() {
                   <strong>{editorWidthMode === "full" ? "Window" : `${editorWidth}px`}</strong>
                 </label>
                 <label className="font-slider">
-                  <span>Text size</span>
+                  <span>Text scale</span>
                   <input
                     type="range"
                     min={MIN_EDITOR_FONT_SIZE}
@@ -1178,7 +1194,7 @@ function App() {
                     step={1}
                     value={editorFontSize}
                     onChange={handleEditorFontSizeChange}
-                    aria-label="Adjust editor text size"
+                    aria-label="Adjust editor text scale"
                   />
                   <strong>{activeTextSizeLabel}</strong>
                 </label>
@@ -1200,6 +1216,12 @@ function App() {
                             filteredFontChoices.length === 1 ? "" : "s"
                           }`}
                     </span>
+                  </div>
+                  <div className="font-browser__current" title={editorFontFamily}>
+                    <span>Selected</span>
+                    <strong style={{ fontFamily: toCssFontFamily(editorFontFamily) }}>
+                      {editorFontFamily}
+                    </strong>
                   </div>
                   <div className="font-browser__list">
                     {pagedFontChoices.length === 0 ? (
@@ -1408,6 +1430,16 @@ function clampEditorWidth(value: number) {
 
 function clampEditorFontSize(value: number) {
   return Math.min(MAX_EDITOR_FONT_SIZE, Math.max(MIN_EDITOR_FONT_SIZE, value));
+}
+
+function formatEditorTextScale(value: number) {
+  const offset = clampEditorFontSize(value) - DEFAULT_EDITOR_FONT_SIZE;
+
+  if (offset === 0) {
+    return "Standard";
+  }
+
+  return `${offset > 0 ? "+" : ""}${offset}px`;
 }
 
 function coerceEditorFontFamily(value: string) {
