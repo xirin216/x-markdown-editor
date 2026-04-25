@@ -264,6 +264,29 @@ function MilkdownEditorInner({
   }, [loading]);
 
   useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    const host = hostRef.current;
+    if (!host) {
+      return;
+    }
+
+    disableNativeSpellcheck(host);
+
+    const observer = new MutationObserver(() => {
+      disableNativeSpellcheck(host);
+    });
+    observer.observe(host, {
+      childList: true,
+      subtree: true,
+    });
+
+    return () => observer.disconnect();
+  }, [loading]);
+
+  useEffect(() => {
     return () => {
       onReadyChangeRef.current?.(false);
     };
@@ -371,6 +394,7 @@ function MilkdownEditorInner({
     <div
       ref={hostRef}
       className={`milkdown-editor${disabled ? " milkdown-editor--disabled" : ""}`}
+      spellCheck={false}
       style={style}
     >
       {showToolbar ? (
@@ -391,11 +415,24 @@ function MilkdownEditorInner({
           ))}
         </div>
       ) : null}
-      <div className="milkdown-surface">
+      <div className="milkdown-surface" spellCheck={false}>
         <Milkdown />
       </div>
     </div>
   );
+}
+
+function disableNativeSpellcheck(host: HTMLElement) {
+  const targets = [
+    host,
+    ...host.querySelectorAll<HTMLElement>(
+      ".milkdown, .ProseMirror, [contenteditable='true'], textarea, input",
+    ),
+  ];
+
+  targets.forEach((target) => {
+    target.setAttribute("spellcheck", "false");
+  });
 }
 
 function focusNeedle(host: HTMLDivElement | null, needle: string) {

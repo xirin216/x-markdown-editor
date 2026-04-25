@@ -12,7 +12,8 @@ pub fn run() {
             backend::search_workspace,
             backend::watch_paths,
             backend::classify_drop_paths,
-            backend::list_system_fonts
+            backend::list_system_fonts,
+            backend::startup_file_paths
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

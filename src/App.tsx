@@ -19,12 +19,14 @@ import {
   openWorkspaceCommand,
   saveFileCommand,
   searchWorkspaceCommand,
+  startupFilePathsCommand,
   watchPathsCommand,
 } from "./commands";
 import {
   extractHeadings,
   getFileName,
   isInsideWorkspace,
+  normalizeEscapedHtmlMarkdown,
   normalizePathForKey,
   searchInDocument,
   toRelativePath,
@@ -155,11 +157,6 @@ function App() {
     : workspace
       ? normalizeDisplayPath(workspace.rootPath)
       : "No file open";
-  const activeFileScopeLabel = activeTab
-    ? activeTab.inWorkspace
-      ? "Workspace file"
-      : "Standalone file"
-    : "No active file";
   const activeSaveStateLabel = activeTab
     ? activeTab.dirty
       ? "Unsaved changes"
@@ -396,6 +393,41 @@ function App() {
       disposed = true;
       stopWatchEvents?.();
       stopDragEvents?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+
+    const openStartupFiles = async () => {
+      const paths = await startupFilePathsCommand();
+      if (disposed || paths.length === 0) {
+        return;
+      }
+
+      for (const path of paths) {
+        if (disposed) {
+          return;
+        }
+
+        await loadMarkdownFile(path, {
+          silent: paths.length > 1,
+        });
+      }
+
+      if (paths.length > 1) {
+        setStatusMessage(`Opened ${paths.length} markdown files from launch.`);
+      }
+    };
+
+    void openStartupFiles().catch((error) => {
+      if (!disposed) {
+        setStatusMessage(`Launch file open failed: ${asErrorMessage(error)}`);
+      }
+    });
+
+    return () => {
+      disposed = true;
     };
   }, []);
 
@@ -707,7 +739,7 @@ function App() {
     }
 
     try {
-      const content = activeTab.content;
+      const content = normalizeEscapedHtmlMarkdown(activeTab.content);
       const result = await saveFileCommand(activeTab.path, content);
       const normalized = normalizePathForKey(result.path);
       ignoreWatchUntilRef.current[normalized] = Date.now() + 1500;
@@ -1157,9 +1189,6 @@ function App() {
           </div>
           <div className="tabs__actions">
             <div className="tabs__badges" aria-label="Active document status">
-              <span className={activeTab?.inWorkspace ? "meta-pill" : "meta-pill meta-pill--muted"}>
-                {activeFileScopeLabel}
-              </span>
               <span className="meta-pill meta-pill--muted">{activeSaveStateLabel}</span>
             </div>
             <button

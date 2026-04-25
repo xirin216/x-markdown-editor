@@ -57,6 +57,10 @@ export function classifyDropPaths(paths: string[]) {
   });
 }
 
+export function startupFilePathsCommand() {
+  return invoke<string[]>("startup_file_paths");
+}
+
 export async function listSystemFontsCommand() {
   let tauriError: unknown = null;
 

@@ -2,6 +2,7 @@ use font_kit::source::SystemSource;
 use notify::{recommended_watcher, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::collections::HashSet;
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -193,6 +194,11 @@ pub fn list_system_fonts() -> Result<Vec<String>, String> {
     let families = normalize_font_families(families);
 
     Ok(families)
+}
+
+#[tauri::command]
+pub fn startup_file_paths() -> Vec<String> {
+    collect_startup_markdown_paths(std::env::args_os().skip(1))
 }
 
 fn normalize_font_families(families: Vec<String>) -> Vec<String> {
@@ -466,6 +472,24 @@ fn compact_preview(line: &str) -> String {
     }
 }
 
+fn collect_startup_markdown_paths<I>(args: I) -> Vec<String>
+where
+    I: IntoIterator<Item = OsString>,
+{
+    args.into_iter()
+        .filter_map(|arg| {
+            let candidate = PathBuf::from(arg);
+            let normalized = candidate.canonicalize().ok()?;
+
+            if normalized.is_file() && is_markdown_path(&normalized) {
+                Some(path_to_string(&normalized))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 fn normalize_existing_path(path: &str) -> Result<PathBuf, String> {
     let candidate = PathBuf::from(path);
     if !candidate.exists() {
@@ -529,7 +553,8 @@ fn path_to_string(path: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{classify_paths, search_markdown_files};
+    use super::{classify_paths, collect_startup_markdown_paths, search_markdown_files};
+    use std::ffi::OsString;
     use std::fs;
     use tempfile::tempdir;
 
@@ -583,5 +608,29 @@ mod tests {
 
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].line, 2);
+    }
+
+    #[test]
+    fn collects_markdown_paths_from_startup_args() {
+        let temp = tempdir().expect("temp dir");
+        let markdown = temp.path().join("note.md");
+        let text = temp.path().join("note.txt");
+        fs::write(&markdown, "# note").expect("markdown file");
+        fs::write(&text, "plain").expect("text file");
+
+        let paths = collect_startup_markdown_paths(vec![
+            OsString::from("--ignored"),
+            markdown.as_os_str().to_owned(),
+            text.as_os_str().to_owned(),
+        ]);
+
+        assert_eq!(
+            paths,
+            vec![markdown
+                .canonicalize()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned()]
+        );
     }
 }

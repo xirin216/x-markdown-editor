@@ -30,12 +30,21 @@
     "targets": ["nsis"],
     "publisher": "xirin",
     "category": "Productivity",
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown"],
+        "name": "Markdown Document",
+        "description": "Markdown document",
+        "role": "Editor",
+        "mimeType": "text/markdown"
+      }
+    ],
     "shortDescription": "Edit markdown files from anywhere on disk.",
     "longDescription": "A Windows-first markdown editor with source-first editing, workspace search, live outline navigation, and drag-and-drop file loading for files anywhere on disk.",
     "copyright": "© 2026 xirin",
     "windows": {
       "nsis": {
-        "installMode": "currentUser",
+        "installMode": "perMachine",
         "displayLanguageSelector": false
       }
     },
