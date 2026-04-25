@@ -40,6 +40,7 @@ type MilkdownEditorProps = {
   jumpKey?: string;
   disabled?: boolean;
   placeholder?: string;
+  showToolbar?: boolean;
   onReadyChange?(ready: boolean): void;
   onJumpHandled?(): void;
   style?: CSSProperties;
@@ -193,6 +194,7 @@ function MilkdownEditorInner({
   jumpKey,
   disabled = false,
   placeholder = "Open a markdown file and start writing.",
+  showToolbar = true,
   onReadyChange,
   onJumpHandled,
   style,
@@ -371,22 +373,24 @@ function MilkdownEditorInner({
       className={`milkdown-editor${disabled ? " milkdown-editor--disabled" : ""}`}
       style={style}
     >
-      <div className="milkdown-toolbar" role="toolbar" aria-label="Markdown editor toolbar">
-        {toolbarGroups.map((group, groupIndex) => (
-          <div key={groupIndex} className="milkdown-toolbar__group">
-            {group.map((button) => (
-              <button
-                key={button.label}
-                type="button"
-                disabled={loading || disabled}
-                onMouseDown={(event) => runToolbarButton(event, button.run)}
-              >
-                {button.label}
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
+      {showToolbar ? (
+        <div className="milkdown-toolbar" role="toolbar" aria-label="Markdown editor toolbar">
+          {toolbarGroups.map((group, groupIndex) => (
+            <div key={groupIndex} className="milkdown-toolbar__group">
+              {group.map((button) => (
+                <button
+                  key={button.label}
+                  type="button"
+                  disabled={loading || disabled}
+                  onMouseDown={(event) => runToolbarButton(event, button.run)}
+                >
+                  {button.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="milkdown-surface">
         <Milkdown />
       </div>

@@ -52,6 +52,7 @@ const EDITOR_WIDTH_STORAGE_KEY = "x-markdown-editor.editor-width";
 const EDITOR_WIDTH_MODE_STORAGE_KEY = "x-markdown-editor.editor-width-mode";
 const EDITOR_FONT_SIZE_STORAGE_KEY = "x-markdown-editor.editor-font-size";
 const EDITOR_FONT_FAMILY_STORAGE_KEY = "x-markdown-editor.editor-font-family";
+const EDITOR_TOOLBAR_VISIBLE_STORAGE_KEY = "x-markdown-editor.toolbar-visible";
 const MIN_EDITOR_WIDTH = 900;
 const MAX_EDITOR_WIDTH = 1800;
 const DEFAULT_EDITOR_WIDTH = 1240;
@@ -116,6 +117,7 @@ function App() {
   const [editorFontFamily, setEditorFontFamily] = useState(
     readStoredEditorFontFamily,
   );
+  const [toolbarVisible, setToolbarVisible] = useState(readStoredToolbarVisible);
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
   const [systemFontsLoaded, setSystemFontsLoaded] = useState(false);
   const [fontLoading, setFontLoading] = useState(false);
@@ -244,6 +246,13 @@ function App() {
       editorFontFamily,
     );
   }, [editorFontFamily]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      EDITOR_TOOLBAR_VISIBLE_STORAGE_KEY,
+      toolbarVisible ? "true" : "false",
+    );
+  }, [toolbarVisible]);
 
   async function loadSystemFonts() {
     if (systemFontsLoaded || fontLoading) {
@@ -1155,6 +1164,15 @@ function App() {
             </div>
             <button
               type="button"
+              className={`tabs__settings-button ${toolbarVisible ? "is-active" : ""}`}
+              aria-pressed={toolbarVisible}
+              aria-label="Toggle markdown toolbar"
+              onClick={() => setToolbarVisible((visible) => !visible)}
+            >
+              Toolbar
+            </button>
+            <button
+              type="button"
               className={`tabs__settings-button ${settingsOpen ? "is-active" : ""}`}
               aria-expanded={settingsOpen}
               aria-label="Toggle editor settings"
@@ -1166,38 +1184,83 @@ function App() {
         </div>
 
         {settingsOpen ? (
-          <header className="app-header app-header--panel">
-            <div className="app-brand">
+          <header className="app-header app-header--panel settings-panel">
+            <div className="settings-panel__title">
               <strong className="app-title">Editor settings</strong>
             </div>
-            <div className="app-controls">
-              <div className="width-controls">
-                <label className="width-slider">
-                  <span>Page width</span>
-                  <input
-                    type="range"
-                    min={MIN_EDITOR_WIDTH}
-                    max={MAX_EDITOR_WIDTH}
-                    step={20}
-                    value={editorWidth}
-                    onChange={handleEditorWidthChange}
-                    aria-label="Adjust editor page width"
-                  />
-                  <strong>{editorWidthMode === "full" ? "Window" : `${editorWidth}px`}</strong>
-                </label>
-                <label className="font-slider">
-                  <span>Text scale</span>
-                  <input
-                    type="range"
-                    min={MIN_EDITOR_FONT_SIZE}
-                    max={MAX_EDITOR_FONT_SIZE}
-                    step={1}
-                    value={editorFontSize}
-                    onChange={handleEditorFontSizeChange}
-                    aria-label="Adjust editor text scale"
-                  />
-                  <strong>{activeTextSizeLabel}</strong>
-                </label>
+            <div className="settings-panel__grid">
+              <div className="settings-panel__controls">
+                <div className="settings-panel__sliders">
+                  <label className="width-slider">
+                    <span>Page width</span>
+                    <input
+                      type="range"
+                      min={MIN_EDITOR_WIDTH}
+                      max={MAX_EDITOR_WIDTH}
+                      step={20}
+                      value={editorWidth}
+                      onChange={handleEditorWidthChange}
+                      aria-label="Adjust editor page width"
+                    />
+                    <strong>{editorWidthMode === "full" ? "Window" : `${editorWidth}px`}</strong>
+                  </label>
+                  <label className="font-slider">
+                    <span>Text scale</span>
+                    <input
+                      type="range"
+                      min={MIN_EDITOR_FONT_SIZE}
+                      max={MAX_EDITOR_FONT_SIZE}
+                      step={1}
+                      value={editorFontSize}
+                      onChange={handleEditorFontSizeChange}
+                      aria-label="Adjust editor text scale"
+                    />
+                    <strong>{activeTextSizeLabel}</strong>
+                  </label>
+                </div>
+                <div className="view-options" aria-label="Editor controls">
+                  <button
+                    type="button"
+                    className={editorWidthMode === "bounded" ? "is-active" : undefined}
+                    onClick={() => setEditorWidthMode("bounded")}
+                  >
+                    Custom
+                  </button>
+                  <button
+                    type="button"
+                    className={editorWidthMode === "full" ? "is-active" : undefined}
+                    onClick={() => setEditorWidthMode("full")}
+                  >
+                    Fit window
+                  </button>
+                  <button type="button" onClick={resetEditorWidth}>
+                    Width reset
+                  </button>
+                  <button type="button" onClick={resetEditorFontSize}>
+                    Text reset
+                  </button>
+                  <button type="button" onClick={resetEditorFontFamily}>
+                    Font reset
+                  </button>
+                </div>
+                <div className="app-actions settings-panel__actions">
+                  <button type="button" onClick={() => void openFilesFromPicker()}>
+                    Open File
+                  </button>
+                  <button type="button" onClick={() => void openFolderFromPicker()}>
+                    Open Folder
+                  </button>
+                  <button
+                    type="button"
+                    className="app-actions__primary"
+                    onClick={() => void saveActiveDocument()}
+                    disabled={!activeTab || !editorReady}
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+              <div className="settings-panel__font">
                 <div className="font-browser">
                   <div className="font-browser__header">
                     <label className="font-search">
@@ -1269,47 +1332,6 @@ function App() {
                     </div>
                   </div>
                 </div>
-                <div className="view-options" aria-label="Editor controls">
-                  <button
-                    type="button"
-                    className={editorWidthMode === "bounded" ? "is-active" : undefined}
-                    onClick={() => setEditorWidthMode("bounded")}
-                  >
-                    Custom
-                  </button>
-                  <button
-                    type="button"
-                    className={editorWidthMode === "full" ? "is-active" : undefined}
-                    onClick={() => setEditorWidthMode("full")}
-                  >
-                    Fit window
-                  </button>
-                  <button type="button" onClick={resetEditorWidth}>
-                    Width reset
-                  </button>
-                  <button type="button" onClick={resetEditorFontSize}>
-                    Text reset
-                  </button>
-                  <button type="button" onClick={resetEditorFontFamily}>
-                    Font reset
-                  </button>
-                </div>
-              </div>
-              <div className="app-actions">
-                <button type="button" onClick={() => void openFilesFromPicker()}>
-                  Open File
-                </button>
-                <button type="button" onClick={() => void openFolderFromPicker()}>
-                  Open Folder
-                </button>
-                <button
-                  type="button"
-                  className="app-actions__primary"
-                  onClick={() => void saveActiveDocument()}
-                  disabled={!activeTab || !editorReady}
-                >
-                  Save
-                </button>
               </div>
             </div>
           </header>
@@ -1353,6 +1375,7 @@ function App() {
                   jumpKey={activeJumpKey}
                   onJumpHandled={() => setPendingJump(null)}
                   onReadyChange={setEditorReady}
+                  showToolbar={toolbarVisible}
                   style={editorPaneStyle}
                 />
               ) : null}
@@ -1532,6 +1555,14 @@ function readStoredEditorFontFamily() {
     window.localStorage.getItem(EDITOR_FONT_FAMILY_STORAGE_KEY) ??
       DEFAULT_EDITOR_FONT_FAMILY,
   );
+}
+
+function readStoredToolbarVisible() {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  return window.localStorage.getItem(EDITOR_TOOLBAR_VISIBLE_STORAGE_KEY) !== "false";
 }
 
 export default App;
