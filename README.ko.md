@@ -19,7 +19,7 @@ X Markdown Editor는 디스크 어디에 있는 `.md`, `.markdown` 파일이든 
 - 검색과 페이지 이동이 가능한 시스템 폰트 브라우저에서 에디터 폰트를 선택합니다.
 - 에디터 폰트, 글자 크기, 페이지 폭, 툴바 표시 상태 등 설정을 저장합니다.
 - 인쇄 시 에디터 폭, 폰트, 글자 크기 설정을 출력 양식에 반영합니다.
-- Windows NSIS 설치 파일을 빌드합니다.
+- Windows NSIS 설치 파일과 GitHub Release용 포터블 실행 파일을 빌드합니다.
 
 ## 사용된 라이브러리
 
@@ -100,7 +100,7 @@ cd src-tauri
 cargo test
 ```
 
-Windows 데스크톱 설치 파일 빌드:
+Windows 데스크톱 설치 파일과 포터블 실행 파일 빌드:
 
 ```powershell
 npm.cmd run package:windows
@@ -112,7 +112,7 @@ npm.cmd run package:windows
 build-windows.bat
 ```
 
-생성된 NSIS 설치 파일은 다음 경로에 만들어집니다.
+생성된 NSIS 설치 파일과 포터블 실행 파일은 다음 경로에 만들어집니다.
 
 ```text
 src-tauri\target\release\bundle\nsis\
@@ -121,6 +121,7 @@ src-tauri\target\release\bundle\nsis\
 ## Windows 패키징 참고
 
 - 번들 대상: NSIS
+- 포터블 출력: `X-Markdown-Editor-<version>-x64-portable.exe`
 - 설치 모드: per-machine
 - 예상 설치 위치: Program Files
 - 설치 시 관리자 권한: 필요

@@ -10,7 +10,16 @@ import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import type { Ctx } from "@milkdown/kit/ctx";
-import { commandsCtx, editorViewCtx } from "@milkdown/kit/core";
+import type {
+  Handle,
+  Join,
+  Options as MarkdownStringifyOptions,
+} from "mdast-util-to-markdown";
+import {
+  commandsCtx,
+  editorViewCtx,
+  remarkStringifyOptionsCtx,
+} from "@milkdown/kit/core";
 import { toggleLinkCommand } from "@milkdown/kit/component/link-tooltip";
 import { undoCommand, redoCommand } from "@milkdown/kit/plugin/history";
 import {
@@ -30,6 +39,7 @@ import {
 } from "@milkdown/kit/preset/commonmark";
 import { createTable } from "@milkdown/kit/preset/gfm";
 import { replaceAll } from "@milkdown/kit/utils";
+import { normalizeSerializedMarkdown } from "./markdown";
 import { milkdownHtmlPreview } from "./milkdownHtmlPreview";
 
 type MilkdownEditorProps = {
@@ -50,6 +60,17 @@ type ToolbarButton = {
   label: string;
   run(ctx: Ctx): void;
 };
+
+type BulletMarker = "-" | "*" | "+";
+
+const USER_EDIT_GRACE_MS = 1200;
+const blocksRequiringDefaultJoin = new Set([
+  "blockquote",
+  "code",
+  "html",
+  "table",
+  "thematicBreak",
+]);
 
 const headingButtons: ToolbarButton[] = [
   {
@@ -207,6 +228,8 @@ function MilkdownEditorInner({
   const valueRef = useRef(value);
   const lastMarkdownRef = useRef(value);
   const appliedMarkdownRef = useRef<string | null>(null);
+  const userEditUntilRef = useRef(0);
+  const preferredBulletMarkerRef = useRef(inferPreferredBulletMarker(value));
 
   onChangeRef.current = onChange;
   onReadyChangeRef.current = onReadyChange;
@@ -232,21 +255,41 @@ function MilkdownEditorInner({
       },
     });
     crepe.editor.use(milkdownHtmlPreview);
+    crepe.editor.config((ctx) => {
+      const bullet = preferredBulletMarkerRef.current;
+      const bulletOther: BulletMarker = bullet === "*" ? "-" : "*";
+      ctx.update(remarkStringifyOptionsCtx, (options) =>
+        configureObsidianStringifyOptions(options, bullet, bulletOther),
+      );
+    });
 
     crepeRef.current = crepe;
     lastMarkdownRef.current = value;
 
     crepe.on((listener) => {
-      listener.markdownUpdated((_ctx, markdown) => {
-        lastMarkdownRef.current = markdown;
+      listener.markdownUpdated((_ctx, markdown, previousMarkdown) => {
+        const nextMarkdown = normalizeSerializedMarkdown(markdown);
+        const previousNormalizedMarkdown =
+          normalizeSerializedMarkdown(previousMarkdown);
+        const userInitiated = hasRecentUserEditIntent();
 
-        if (appliedMarkdownRef.current === markdown) {
+        lastMarkdownRef.current = nextMarkdown;
+
+        if (nextMarkdown === previousNormalizedMarkdown) {
+          return;
+        }
+
+        if (appliedMarkdownRef.current === nextMarkdown) {
           appliedMarkdownRef.current = null;
           return;
         }
 
-        if (markdown !== valueRef.current) {
-          onChangeRef.current(markdown);
+        if (!userInitiated) {
+          return;
+        }
+
+        if (nextMarkdown !== valueRef.current) {
+          onChangeRef.current(nextMarkdown);
         }
       });
     });
@@ -287,6 +330,47 @@ function MilkdownEditorInner({
   }, [loading]);
 
   useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    const host = hostRef.current;
+    if (!host) {
+      return;
+    }
+
+    const markInputIntent = (event: Event) => {
+      const isHtmlEditCommit = event.type === "milkdown-html-user-edit";
+      if (!disabled && (event.isTrusted || isHtmlEditCommit)) {
+        markUserEditIntent();
+      }
+    };
+    const markKeyboardIntent = (event: KeyboardEvent) => {
+      if (!disabled && event.isTrusted && isEditingKey(event)) {
+        markUserEditIntent();
+      }
+    };
+
+    host.addEventListener("beforeinput", markInputIntent, true);
+    host.addEventListener("input", markInputIntent, true);
+    host.addEventListener("paste", markInputIntent, true);
+    host.addEventListener("drop", markInputIntent, true);
+    host.addEventListener("compositionend", markInputIntent, true);
+    host.addEventListener("milkdown-html-user-edit", markInputIntent, true);
+    host.addEventListener("keydown", markKeyboardIntent, true);
+
+    return () => {
+      host.removeEventListener("beforeinput", markInputIntent, true);
+      host.removeEventListener("input", markInputIntent, true);
+      host.removeEventListener("paste", markInputIntent, true);
+      host.removeEventListener("drop", markInputIntent, true);
+      host.removeEventListener("compositionend", markInputIntent, true);
+      host.removeEventListener("milkdown-html-user-edit", markInputIntent, true);
+      host.removeEventListener("keydown", markKeyboardIntent, true);
+    };
+  }, [disabled, loading]);
+
+  useEffect(() => {
     return () => {
       onReadyChangeRef.current?.(false);
     };
@@ -317,6 +401,7 @@ function MilkdownEditorInner({
 
     appliedMarkdownRef.current = value;
     lastMarkdownRef.current = value;
+    userEditUntilRef.current = 0;
     editor.action(replaceAll(value, true));
   }, [get, loading, value]);
 
@@ -384,10 +469,19 @@ function MilkdownEditorInner({
       return;
     }
 
+    markUserEditIntent();
     editor.action((ctx) => {
       run(ctx);
       ctx.get(editorViewCtx).focus();
     });
+  }
+
+  function markUserEditIntent() {
+    userEditUntilRef.current = Date.now() + USER_EDIT_GRACE_MS;
+  }
+
+  function hasRecentUserEditIntent() {
+    return Date.now() <= userEditUntilRef.current;
   }
 
   return (
@@ -433,6 +527,75 @@ function disableNativeSpellcheck(host: HTMLElement) {
   targets.forEach((target) => {
     target.setAttribute("spellcheck", "false");
   });
+}
+
+function isEditingKey(event: KeyboardEvent) {
+  if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+    return true;
+  }
+
+  if (["Backspace", "Delete", "Enter", "Tab"].includes(event.key)) {
+    return true;
+  }
+
+  if (!(event.ctrlKey || event.metaKey)) {
+    return false;
+  }
+
+  return ["b", "i", "u", "v", "x", "y", "z"].includes(event.key.toLowerCase());
+}
+
+function configureObsidianStringifyOptions(
+  options: MarkdownStringifyOptions,
+  bullet: BulletMarker,
+  bulletOther: BulletMarker,
+): MarkdownStringifyOptions {
+  return {
+    ...options,
+    bullet,
+    bulletOther,
+    handlers: {
+      ...(options.handlers ?? {}),
+      break: renderLiteralLineBreak,
+    },
+    join: [...(options.join ?? []), joinObsidianBlocks],
+  };
+}
+
+const renderLiteralLineBreak: Handle = () => "\n";
+
+const joinObsidianBlocks: Join = (left, right, parent) => {
+  if (parent.type !== "root") {
+    return;
+  }
+
+  if (
+    blocksRequiringDefaultJoin.has(left.type) ||
+    blocksRequiringDefaultJoin.has(right.type)
+  ) {
+    return;
+  }
+
+  return 0;
+};
+
+function inferPreferredBulletMarker(markdown: string): BulletMarker {
+  const counts: Record<BulletMarker, number> = {
+    "-": 0,
+    "*": 0,
+    "+": 0,
+  };
+
+  markdown.split(/\r?\n/).forEach((line) => {
+    const match = /^ {0,3}([-+*])\s+\S/.exec(line);
+    if (match) {
+      counts[match[1] as BulletMarker] += 1;
+    }
+  });
+
+  return (Object.entries(counts) as Array<[BulletMarker, number]>).sort(
+    (left, right) => right[1] - left[1],
+  )[0][0];
 }
 
 function focusNeedle(host: HTMLDivElement | null, needle: string) {

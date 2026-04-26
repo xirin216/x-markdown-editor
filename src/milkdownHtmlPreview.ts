@@ -152,6 +152,11 @@ export const milkdownHtmlPreview = $view(
           return;
         }
 
+        dom.dispatchEvent(
+          new CustomEvent("milkdown-html-user-edit", {
+            bubbles: true,
+          }),
+        );
         view.dispatch(view.state.tr.setNodeAttribute(pos, "value", nextValue));
       };
 

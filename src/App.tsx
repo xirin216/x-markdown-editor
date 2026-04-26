@@ -26,7 +26,7 @@ import {
   extractHeadings,
   getFileName,
   isInsideWorkspace,
-  normalizeEscapedHtmlMarkdown,
+  normalizeObsidianLineBreaks,
   normalizePathForKey,
   searchInDocument,
   toRelativePath,
@@ -738,8 +738,13 @@ function App() {
       return;
     }
 
+    if (!activeTab.dirty) {
+      setStatusMessage(`No changes to save for ${activeTab.title}.`);
+      return;
+    }
+
     try {
-      const content = normalizeEscapedHtmlMarkdown(activeTab.content);
+      const content = normalizeObsidianLineBreaks(activeTab.content);
       const result = await saveFileCommand(activeTab.path, content);
       const normalized = normalizePathForKey(result.path);
       ignoreWatchUntilRef.current[normalized] = Date.now() + 1500;

@@ -19,6 +19,17 @@ const htmlDeclarationLinePattern = /^<![A-Za-z][^<>]*>$/;
 const fenceLinePattern = /^ {0,3}(`{3,}|~{3,})/;
 const htmlHardBreakPattern = /<br\s*\/?>/i;
 const htmlHardBreakGlobalPattern = /[ \t]*<br\s*\/?>[ \t]*/gi;
+const listMarkerLinePattern = /^(\s*)((?:[-+*])|(?:\d{1,9}[.)]))\s+(?:\[[ xX]\]\s+)?\S/;
+
+type MarkdownLine = {
+  text: string;
+  eol: string;
+};
+
+type ListMarkerInfo = {
+  indent: string;
+  kind: "bullet" | "ordered";
+};
 
 export function normalizePathForKey(path: string) {
   return path.replace(/\\/g, "/").toLowerCase();
@@ -107,6 +118,25 @@ export function isMarkdownPath(path: string) {
   return markdownPattern.test(path);
 }
 
+export function normalizeSerializedMarkdown(markdown: string) {
+  return normalizeTightListSpacing(normalizeObsidianLineBreaks(markdown));
+}
+
+export function normalizeLineEndingsToLf(markdown: string) {
+  return markdown.replace(/\r\n|\r/g, "\n");
+}
+
+export function normalizeObsidianLineBreaks(markdown: string) {
+  return normalizeLineEndingsToLf(markdown).replace(
+    /^[ \t]*<br\s*\/?>[ \t]*$/gim,
+    "",
+  );
+}
+
+export function normalizeMarkdownForSave(markdown: string) {
+  return normalizeEscapedHtmlMarkdown(markdown);
+}
+
 export function normalizeEscapedHtmlMarkdown(markdown: string) {
   if (!markdown.includes("\\<") && !htmlHardBreakPattern.test(markdown)) {
     return markdown;
@@ -180,6 +210,124 @@ function normalizeEscapedHtmlLine(line: string) {
 
 function normalizeMarkdownLine(line: string) {
   return normalizeHtmlHardBreakLine(normalizeEscapedHtmlLine(line));
+}
+
+function normalizeTightListSpacing(markdown: string) {
+  if (!/\r?\n[ \t]*\r?\n/.test(markdown)) {
+    return markdown;
+  }
+
+  const lines = splitMarkdownLines(markdown);
+  const output: MarkdownLine[] = [];
+  let inFence = false;
+  let fenceChar = "";
+  let fenceLength = 0;
+
+  lines.forEach((line, index) => {
+    if (!inFence && isBlankLine(line.text)) {
+      const previousLine = findPreviousNonBlankLine(lines, index - 1);
+      const nextLine = findNextNonBlankLine(lines, index + 1);
+
+      if (
+        previousLine &&
+        nextLine &&
+        shouldRemoveBlankBetweenListItems(previousLine.text, nextLine.text)
+      ) {
+        return;
+      }
+    }
+
+    output.push(line);
+
+    const fenceMatch = fenceLinePattern.exec(line.text);
+    if (!fenceMatch) {
+      return;
+    }
+
+    const marker = fenceMatch[1];
+    if (!inFence) {
+      inFence = true;
+      fenceChar = marker[0];
+      fenceLength = marker.length;
+    } else if (marker[0] === fenceChar && marker.length >= fenceLength) {
+      inFence = false;
+      fenceChar = "";
+      fenceLength = 0;
+    }
+  });
+
+  return output.map((line) => `${line.text}${line.eol}`).join("");
+}
+
+function splitMarkdownLines(markdown: string) {
+  const lines: MarkdownLine[] = [];
+  const linePattern = /([^\r\n]*)(\r\n|\n|\r|$)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = linePattern.exec(markdown)) !== null) {
+    const text = match[1] ?? "";
+    const eol = match[2] ?? "";
+
+    if (!text && !eol && match.index === markdown.length) {
+      break;
+    }
+
+    lines.push({ text, eol });
+
+    if (eol === "") {
+      break;
+    }
+  }
+
+  return lines;
+}
+
+function isBlankLine(line: string) {
+  return line.trim().length === 0;
+}
+
+function findPreviousNonBlankLine(lines: MarkdownLine[], startIndex: number) {
+  for (let index = startIndex; index >= 0; index -= 1) {
+    if (!isBlankLine(lines[index].text)) {
+      return lines[index];
+    }
+  }
+
+  return null;
+}
+
+function findNextNonBlankLine(lines: MarkdownLine[], startIndex: number) {
+  for (let index = startIndex; index < lines.length; index += 1) {
+    if (!isBlankLine(lines[index].text)) {
+      return lines[index];
+    }
+  }
+
+  return null;
+}
+
+function shouldRemoveBlankBetweenListItems(previousLine: string, nextLine: string) {
+  const previousMarker = getListMarkerInfo(previousLine);
+  const nextMarker = getListMarkerInfo(nextLine);
+
+  return (
+    previousMarker !== null &&
+    nextMarker !== null &&
+    previousMarker.indent === nextMarker.indent &&
+    previousMarker.kind === nextMarker.kind
+  );
+}
+
+function getListMarkerInfo(line: string): ListMarkerInfo | null {
+  const match = listMarkerLinePattern.exec(line);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    indent: match[1],
+    kind: /\d/.test(match[2][0]) ? "ordered" : "bullet",
+  };
 }
 
 function normalizeHtmlHardBreakLine(line: string) {
