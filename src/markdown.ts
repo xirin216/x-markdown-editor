@@ -119,11 +119,15 @@ export function isMarkdownPath(path: string) {
 }
 
 export function normalizeSerializedMarkdown(markdown: string) {
-  return normalizeTightListSpacing(normalizeObsidianLineBreaks(markdown));
+  return normalizeTightListSpacing(normalizeObsidianMarkdown(markdown));
 }
 
 export function normalizeLineEndingsToLf(markdown: string) {
   return markdown.replace(/\r\n|\r/g, "\n");
+}
+
+export function normalizeObsidianMarkdown(markdown: string) {
+  return normalizeEscapedRawHtmlMarkdown(normalizeObsidianLineBreaks(markdown));
 }
 
 export function normalizeObsidianLineBreaks(markdown: string) {
@@ -134,7 +138,7 @@ export function normalizeObsidianLineBreaks(markdown: string) {
 }
 
 export function normalizeMarkdownForSave(markdown: string) {
-  return normalizeEscapedHtmlMarkdown(markdown);
+  return normalizeObsidianMarkdown(markdown);
 }
 
 export function normalizeEscapedHtmlMarkdown(markdown: string) {
@@ -156,6 +160,46 @@ export function normalizeEscapedHtmlMarkdown(markdown: string) {
       const fenceMatch = fenceLinePattern.exec(segment);
       const shouldNormalize = !inFence && !fenceMatch;
       const nextSegment = shouldNormalize ? normalizeMarkdownLine(segment) : segment;
+
+      if (fenceMatch) {
+        const marker = fenceMatch[1];
+        if (!inFence) {
+          inFence = true;
+          fenceChar = marker[0];
+          fenceLength = marker.length;
+        } else if (marker[0] === fenceChar && marker.length >= fenceLength) {
+          inFence = false;
+          fenceChar = "";
+          fenceLength = 0;
+        }
+      }
+
+      return nextSegment;
+    })
+    .join("");
+}
+
+function normalizeEscapedRawHtmlMarkdown(markdown: string) {
+  if (!markdown.includes("\\<")) {
+    return markdown;
+  }
+
+  let inFence = false;
+  let fenceChar = "";
+  let fenceLength = 0;
+
+  return markdown
+    .split(/(\n)/)
+    .map((segment, index) => {
+      if (index % 2 === 1) {
+        return segment;
+      }
+
+      const fenceMatch = fenceLinePattern.exec(segment);
+      const shouldNormalize = !inFence && !fenceMatch;
+      const nextSegment = shouldNormalize
+        ? normalizeEscapedHtmlLine(segment)
+        : segment;
 
       if (fenceMatch) {
         const marker = fenceMatch[1];

@@ -26,7 +26,7 @@ import {
   extractHeadings,
   getFileName,
   isInsideWorkspace,
-  normalizeObsidianLineBreaks,
+  normalizeObsidianMarkdown,
   normalizePathForKey,
   searchInDocument,
   toRelativePath,
@@ -744,7 +744,7 @@ function App() {
     }
 
     try {
-      const content = normalizeObsidianLineBreaks(activeTab.content);
+      const content = normalizeObsidianMarkdown(activeTab.content);
       const result = await saveFileCommand(activeTab.path, content);
       const normalized = normalizePathForKey(result.path);
       ignoreWatchUntilRef.current[normalized] = Date.now() + 1500;

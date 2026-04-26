@@ -28,6 +28,7 @@ import {
   bulletListSchema,
   codeBlockSchema,
   headingSchema,
+  htmlSchema,
   orderedListSchema,
   paragraphSchema,
   selectTextNearPosCommand,
@@ -37,6 +38,8 @@ import {
   toggleStrongCommand,
   wrapInBlockTypeCommand,
 } from "@milkdown/kit/preset/commonmark";
+import { TextSelection } from "@milkdown/kit/prose/state";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import { createTable } from "@milkdown/kit/preset/gfm";
 import { replaceAll } from "@milkdown/kit/utils";
 import { normalizeSerializedMarkdown } from "./markdown";
@@ -64,6 +67,8 @@ type ToolbarButton = {
 type BulletMarker = "-" | "*" | "+";
 
 const USER_EDIT_GRACE_MS = 1200;
+const pairedHtmlLinePattern =
+  /^<([A-Za-z][A-Za-z0-9:-]*)(?:\s[^<>]*)?>[\s\S]*<\/([A-Za-z][A-Za-z0-9:-]*)>$/;
 const blocksRequiringDefaultJoin = new Set([
   "blockquote",
   "code",
@@ -350,6 +355,35 @@ function MilkdownEditorInner({
         markUserEditIntent();
       }
     };
+    const convertHtmlLineOnEnter = (event: KeyboardEvent) => {
+      if (
+        disabled ||
+        !event.isTrusted ||
+        event.key !== "Enter" ||
+        event.shiftKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.isComposing ||
+        isFormFieldEvent(event)
+      ) {
+        return;
+      }
+
+      const editor = get();
+      if (!editor) {
+        return;
+      }
+
+      let converted = false;
+      editor.action((ctx) => {
+        converted = convertCurrentLineToHtmlNode(ctx.get(editorViewCtx), ctx);
+      });
+
+      if (converted) {
+        event.preventDefault();
+      }
+    };
 
     host.addEventListener("beforeinput", markInputIntent, true);
     host.addEventListener("input", markInputIntent, true);
@@ -358,6 +392,7 @@ function MilkdownEditorInner({
     host.addEventListener("compositionend", markInputIntent, true);
     host.addEventListener("milkdown-html-user-edit", markInputIntent, true);
     host.addEventListener("keydown", markKeyboardIntent, true);
+    host.addEventListener("keydown", convertHtmlLineOnEnter, true);
 
     return () => {
       host.removeEventListener("beforeinput", markInputIntent, true);
@@ -367,8 +402,9 @@ function MilkdownEditorInner({
       host.removeEventListener("compositionend", markInputIntent, true);
       host.removeEventListener("milkdown-html-user-edit", markInputIntent, true);
       host.removeEventListener("keydown", markKeyboardIntent, true);
+      host.removeEventListener("keydown", convertHtmlLineOnEnter, true);
     };
-  }, [disabled, loading]);
+  }, [disabled, get, loading]);
 
   useEffect(() => {
     return () => {
@@ -543,6 +579,58 @@ function isEditingKey(event: KeyboardEvent) {
   }
 
   return ["b", "i", "u", "v", "x", "y", "z"].includes(event.key.toLowerCase());
+}
+
+function isFormFieldEvent(event: KeyboardEvent) {
+  const target = event.target;
+  return (
+    target instanceof HTMLElement &&
+    target.closest("textarea, input, select, [contenteditable='false']")
+  );
+}
+
+function convertCurrentLineToHtmlNode(view: EditorView, ctx: Ctx) {
+  const { state } = view;
+  const { selection } = state;
+
+  if (!(selection instanceof TextSelection) || !selection.empty) {
+    return false;
+  }
+
+  const paragraphType = paragraphSchema.type(ctx);
+  const htmlType = htmlSchema.type(ctx);
+  const { $from } = selection;
+  const parent = $from.parent;
+
+  if (parent.type !== paragraphType || $from.parentOffset !== parent.content.size) {
+    return false;
+  }
+
+  const rawHtml = parent.textContent.trim();
+  if (!isCompletePairedHtmlLine(rawHtml)) {
+    return false;
+  }
+
+  const paragraphDepth = $from.depth;
+  const from = $from.before(paragraphDepth);
+  const to = $from.after(paragraphDepth);
+  const htmlNode = htmlType.create({ value: rawHtml });
+  const htmlParagraph = paragraphType.create(null, htmlNode);
+  const nextParagraph = paragraphType.create();
+  const tr = state.tr.replaceWith(from, to, [htmlParagraph, nextParagraph]);
+  const nextCursorPosition = from + htmlParagraph.nodeSize + 1;
+
+  view.dispatch(
+    tr
+      .setSelection(TextSelection.create(tr.doc, nextCursorPosition))
+      .scrollIntoView(),
+  );
+  return true;
+}
+
+function isCompletePairedHtmlLine(value: string) {
+  const match = pairedHtmlLinePattern.exec(value.trim());
+  return Boolean(match && match[1].toLowerCase() === match[2].toLowerCase());
 }
 
 function configureObsidianStringifyOptions(
