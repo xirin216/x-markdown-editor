@@ -17,6 +17,7 @@ A Korean version of this document is available in [README.ko.md](README.ko.md).
 * Persist editor font, text size, page width, toolbar visibility, and related editor settings.
 * Print with editor width, font family, and text size applied to the print layout.
 * Build a Windows NSIS installer and a portable executable for GitHub Releases
+
 ## Libraries
 Frontend:
 * React 19
@@ -37,11 +38,13 @@ Frontend:
 * font-kit
 * winreg on Windows
 * tempfile for Rust tests
+
 ## Languages
 * TypeScript and JSX for the frontend application.
 * CSS for layout, editor styling, responsive settings UI, and print styling.
 * Rust 2021 for native commands, file watching, file classification, workspace search, system font listing, and launch argument handling.
 * JSON and TOML for Tauri, npm, and Cargo configuration.
+
 ## Development Environment
 Recommended environment:
 * Windows 10 or Windows 11
@@ -51,11 +54,13 @@ Recommended environment:
 * WebView2 Runtime
 * NSIS tooling as managed by the Tauri bundler
   The app is configured as a Tauri 2 desktop app with a Vite dev server at `http://localhost:1420`.
+
 ## Install Dependencies
 
 ```powershell
 npm.cmd install
 ```
+
 
 ## Run In Development
 Run the full Tauri desktop app:
@@ -64,11 +69,13 @@ Run the full Tauri desktop app:
 npm.cmd run tauri dev
 ```
 
+
 Run only the Vite frontend server:
 
 ```powershell
 npm.cmd run dev
 ```
+
 
 ## Build
 Build the frontend only:
@@ -77,6 +84,7 @@ Build the frontend only:
 npm.cmd run build
 ```
 
+
 Run Rust tests:
 
 ```powershell
@@ -84,11 +92,13 @@ cd src-tauri
 cargo test
 ```
 
+
 Build the Windows desktop installer and portable executable:
 
 ```powershell
 npm.cmd run package:windows
 ```
+
 
 The same Windows packaging command is also available through:
 
@@ -96,11 +106,13 @@ The same Windows packaging command is also available through:
 build-windows.bat
 ```
 
+
 The generated NSIS installer and portable executable are written to:
 
 ```text
 src-tauri\target\release\bundle\nsis\
 ```
+
 
 ## Windows Packaging Notes
 * Bundle target: NSIS
