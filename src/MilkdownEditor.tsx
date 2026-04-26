@@ -79,6 +79,21 @@ type RemarkNode = {
   };
 };
 
+type RectLike = {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+};
+
+type EditorScrollSnapshot = {
+  view: EditorView;
+  surface: HTMLElement;
+  scrollTop: number;
+  scrollLeft: number;
+  caretTop: number;
+};
+
 const USER_EDIT_GRACE_MS = 1200;
 const pairedHtmlLinePattern =
   /^<([A-Za-z][A-Za-z0-9:-]*)(?:\s[^<>]*)?>[\s\S]*<\/([A-Za-z][A-Za-z0-9:-]*)>$/;
@@ -375,6 +390,37 @@ function MilkdownEditorInner({
         markUserEditIntent();
       }
     };
+    const stabilizeScrollOnEnter = (event: KeyboardEvent) => {
+      if (
+        disabled ||
+        !event.isTrusted ||
+        event.key !== "Enter" ||
+        event.isComposing ||
+        isFormFieldEvent(event)
+      ) {
+        return;
+      }
+
+      const editor = get();
+      if (!editor) {
+        return;
+      }
+
+      let snapshot: EditorScrollSnapshot | null = null;
+      editor.action((ctx) => {
+        snapshot = captureEditorScrollSnapshot(ctx.get(editorViewCtx), host);
+      });
+
+      if (!snapshot) {
+        return;
+      }
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          stabilizeUnexpectedEditorScroll(snapshot);
+        });
+      });
+    };
     const convertHtmlLineOnEnter = (event: KeyboardEvent) => {
       if (
         disabled ||
@@ -412,6 +458,7 @@ function MilkdownEditorInner({
     host.addEventListener("compositionend", markInputIntent, true);
     host.addEventListener("milkdown-html-user-edit", markInputIntent, true);
     host.addEventListener("keydown", markKeyboardIntent, true);
+    host.addEventListener("keydown", stabilizeScrollOnEnter, true);
     host.addEventListener("keydown", convertHtmlLineOnEnter, true);
 
     return () => {
@@ -422,6 +469,7 @@ function MilkdownEditorInner({
       host.removeEventListener("compositionend", markInputIntent, true);
       host.removeEventListener("milkdown-html-user-edit", markInputIntent, true);
       host.removeEventListener("keydown", markKeyboardIntent, true);
+      host.removeEventListener("keydown", stabilizeScrollOnEnter, true);
       host.removeEventListener("keydown", convertHtmlLineOnEnter, true);
     };
   }, [disabled, get, loading]);
@@ -748,6 +796,84 @@ function isFormFieldEvent(event: KeyboardEvent) {
   );
 }
 
+function captureEditorScrollSnapshot(
+  view: EditorView,
+  host: HTMLDivElement,
+): EditorScrollSnapshot | null {
+  const surface = getEditorScrollSurface(host);
+  const caretRect = getEditorSelectionRect(view);
+  if (!surface || !caretRect) {
+    return null;
+  }
+
+  const surfaceRect = surface.getBoundingClientRect();
+  if (!isRectVisibleInSurface(caretRect, surfaceRect)) {
+    return null;
+  }
+
+  return {
+    view,
+    surface,
+    scrollTop: surface.scrollTop,
+    scrollLeft: surface.scrollLeft,
+    caretTop: caretRect.top - surfaceRect.top,
+  };
+}
+
+function stabilizeUnexpectedEditorScroll(
+  snapshot: EditorScrollSnapshot | null,
+) {
+  if (
+    !snapshot ||
+    !snapshot.surface.isConnected ||
+    !snapshot.view.dom.isConnected ||
+    !snapshot.surface.contains(snapshot.view.dom)
+  ) {
+    return;
+  }
+
+  const scrollDelta = Math.abs(snapshot.surface.scrollTop - snapshot.scrollTop);
+  const largeJumpThreshold = Math.max(96, snapshot.surface.clientHeight * 0.25);
+  if (scrollDelta < largeJumpThreshold) {
+    return;
+  }
+
+  const caretRect = getEditorSelectionRect(snapshot.view);
+  if (!caretRect) {
+    snapshot.surface.scrollTop = snapshot.scrollTop;
+    snapshot.surface.scrollLeft = snapshot.scrollLeft;
+    return;
+  }
+
+  const surfaceRect = snapshot.surface.getBoundingClientRect();
+  const nextCaretTop = caretRect.top - surfaceRect.top;
+  const correction = nextCaretTop - snapshot.caretTop;
+
+  if (Number.isFinite(correction) && Math.abs(correction) >= 1) {
+    snapshot.surface.scrollTop += correction;
+  }
+
+  snapshot.surface.scrollLeft = snapshot.scrollLeft;
+}
+
+function getEditorSelectionRect(view: EditorView): RectLike | null {
+  try {
+    const coords = view.coordsAtPos(view.state.selection.head);
+    return {
+      top: coords.top,
+      right: coords.right,
+      bottom: coords.bottom,
+      left: coords.left,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isRectVisibleInSurface(rect: RectLike, surfaceRect: DOMRect) {
+  return rect.bottom >= surfaceRect.top && rect.top <= surfaceRect.bottom;
+}
+
 function normalizeLineBreakNodes(view: EditorView, ctx: Ctx) {
   const hardbreakType = hardbreakSchema.type(ctx);
   const codeBlockType = codeBlockSchema.type(ctx);
@@ -964,13 +1090,17 @@ function focusNeedle(host: HTMLDivElement | null, needle: string) {
 }
 
 function scrollEditorToTop(host: HTMLDivElement | null) {
-  const surface = host?.querySelector<HTMLElement>(".milkdown-surface");
+  const surface = getEditorScrollSurface(host);
   if (!surface) {
     return false;
   }
 
   surface.scrollTop = 0;
   return true;
+}
+
+function getEditorScrollSurface(host: HTMLDivElement | null) {
+  return host?.querySelector<HTMLElement>(".milkdown-surface") ?? null;
 }
 
 function MilkdownEditor(props: MilkdownEditorProps) {

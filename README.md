@@ -19,7 +19,7 @@ A Korean version of this document is available in [README.ko.md](README.ko.md).
 * Build a Windows NSIS installer and a portable executable for GitHub Releases
 
 ## Libraries
-Frontend:
+### Frontend:
 * React 19
 * React DOM
 * TypeScript
@@ -28,8 +28,8 @@ Frontend:
 * DOMPurify
 * Tauri JavaScript API
 * Tauri dialog plugin API
-  Backend and desktop:
 
+### Backend and desktop:
 * Tauri 2
 * Rust
 * Serde and serde\_json
@@ -56,63 +56,46 @@ Recommended environment:
   The app is configured as a Tauri 2 desktop app with a Vite dev server at `http://localhost:1420`.
 
 ## Install Dependencies
-
 ```powershell
 npm.cmd install
 ```
 
-
 ## Run In Development
 Run the full Tauri desktop app:
-
 ```powershell
 npm.cmd run tauri dev
 ```
 
-
 Run only the Vite frontend server:
-
 ```powershell
 npm.cmd run dev
 ```
 
-
 ## Build
 Build the frontend only:
-
 ```powershell
 npm.cmd run build
 ```
-
-
 Run Rust tests:
-
 ```powershell
 cd src-tauri
 cargo test
 ```
 
-
 Build the Windows desktop installer and portable executable:
-
 ```powershell
 npm.cmd run package:windows
 ```
 
-
 The same Windows packaging command is also available through:
-
 ```powershell
 build-windows.bat
 ```
 
-
 The generated NSIS installer and portable executable are written to:
-
 ```text
 src-tauri\target\release\bundle\nsis\
 ```
-
 
 ## Windows Packaging Notes
 * Bundle target: NSIS

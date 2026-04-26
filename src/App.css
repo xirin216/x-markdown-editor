@@ -951,6 +951,7 @@ button {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overflow-anchor: none;
   background: #ffffff;
   scroll-padding-top: 28px;
 }
@@ -998,8 +999,9 @@ button {
   color: var(--text);
   font-family: var(--editor-font-family);
   font-size: var(--editor-font-size);
-  line-height: 1.78;
+  line-height: 1.6;
   white-space: break-spaces;
+  overflow-anchor: none;
 }
 
 .editor-instance .milkdown .ProseMirror > *:first-child {
@@ -1010,10 +1012,14 @@ button {
 .editor-instance .milkdown .ProseMirror li,
 .editor-instance .milkdown .ProseMirror blockquote,
 .editor-instance .milkdown .ProseMirror table,
-.editor-instance .milkdown .ProseMirror th,
+  .editor-instance .milkdown .ProseMirror th,
 .editor-instance .milkdown .ProseMirror td {
   font-size: 1em;
-  line-height: 1.78;
+  line-height: 1.6;
+}
+
+.editor-instance .milkdown .ProseMirror p {
+  padding: 2px 0;
 }
 
 .editor-instance .milkdown .ProseMirror p:has(> .milkdown-html-node--block) {
@@ -1158,7 +1164,7 @@ button {
   display: block;
   width: 100%;
   font-size: var(--editor-font-size);
-  line-height: 1.78;
+  line-height: 1.6;
   margin: 0;
 }
 
