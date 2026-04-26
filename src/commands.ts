@@ -5,6 +5,7 @@ import type {
   SaveFileResponse,
   SearchHit,
   WorkspaceInfo,
+  WorkspaceTreeNode,
 } from "./types";
 
 export const WATCH_EVENT_NAME = "fs-event";
@@ -35,6 +36,46 @@ export function saveFileCommand(path: string, content: string) {
 export function openWorkspaceCommand(rootPath: string) {
   return invoke<WorkspaceInfo>("open_workspace", {
     rootPath,
+  });
+}
+
+export function listWorkspaceTreeCommand(rootPath: string) {
+  return invoke<WorkspaceTreeNode[]>("list_workspace_tree", {
+    rootPath,
+  });
+}
+
+export function createWorkspaceMarkdownFileCommand(
+  rootPath: string,
+  parentDir: string | null,
+  fileName: string,
+) {
+  return invoke<OpenFileResponse>("create_workspace_markdown_file", {
+    rootPath,
+    parentDir,
+    fileName,
+  });
+}
+
+export function deleteWorkspaceMarkdownFileCommand(
+  rootPath: string,
+  path: string,
+) {
+  return invoke<string>("delete_workspace_markdown_file", {
+    rootPath,
+    path,
+  });
+}
+
+export function moveWorkspaceMarkdownFileCommand(
+  rootPath: string,
+  sourcePath: string,
+  targetDir: string,
+) {
+  return invoke<OpenFileResponse>("move_workspace_markdown_file", {
+    rootPath,
+    sourcePath,
+    targetDir,
   });
 }
 

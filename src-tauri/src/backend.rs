@@ -39,6 +39,15 @@ pub struct WorkspaceInfo {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct WorkspaceTreeEntry {
+    path: String,
+    name: String,
+    kind: String,
+    children: Vec<WorkspaceTreeEntry>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchHit {
     path: String,
     line: usize,
@@ -107,6 +116,132 @@ pub fn open_workspace(root_path: String) -> Result<WorkspaceInfo, String> {
     Ok(WorkspaceInfo {
         root_path: path_to_string(&normalized),
         markdown_file_count: collect_markdown_files(&normalized).len(),
+    })
+}
+
+#[tauri::command]
+pub fn list_workspace_tree(root_path: String) -> Result<Vec<WorkspaceTreeEntry>, String> {
+    let normalized = normalize_existing_path(&root_path)?;
+    if !normalized.is_dir() {
+        return Err(format!("{} is not a folder.", normalized.display()));
+    }
+
+    build_workspace_tree(&normalized, 0)
+}
+
+#[tauri::command]
+pub fn create_workspace_markdown_file(
+    root_path: String,
+    parent_dir: Option<String>,
+    file_name: String,
+) -> Result<OpenFileResponse, String> {
+    let root = normalize_existing_path(&root_path)?;
+    if !root.is_dir() {
+        return Err(format!("{} is not a folder.", root.display()));
+    }
+
+    let parent = match parent_dir {
+        Some(parent_dir) if !parent_dir.trim().is_empty() => {
+            let normalized_parent = normalize_existing_path(&parent_dir)?;
+            if !normalized_parent.is_dir() {
+                return Err(format!("{} is not a folder.", normalized_parent.display()));
+            }
+            ensure_path_inside_root(&root, &normalized_parent)?;
+            normalized_parent
+        }
+        _ => root.clone(),
+    };
+    let safe_file_name = normalize_new_markdown_file_name(&file_name)?;
+    let target_path = parent.join(safe_file_name);
+
+    ensure_path_inside_root(&root, &target_path)?;
+    if target_path.exists() {
+        return Err(format!("{} already exists.", target_path.display()));
+    }
+
+    fs::write(&target_path, "")
+        .map_err(|error| format!("Failed to create {}: {error}", target_path.display()))?;
+
+    Ok(OpenFileResponse {
+        path: path_to_string(&target_path),
+        content: String::new(),
+        modified_at: file_modified_at(&target_path)?,
+    })
+}
+
+#[tauri::command]
+pub fn delete_workspace_markdown_file(root_path: String, path: String) -> Result<String, String> {
+    let root = normalize_existing_path(&root_path)?;
+    if !root.is_dir() {
+        return Err(format!("{} is not a folder.", root.display()));
+    }
+
+    let target_path = normalize_existing_path(&path)?;
+    ensure_path_inside_root(&root, &target_path)?;
+    ensure_markdown_file(&target_path)?;
+
+    fs::remove_file(&target_path)
+        .map_err(|error| format!("Failed to delete {}: {error}", target_path.display()))?;
+
+    Ok(path_to_string(&target_path))
+}
+
+#[tauri::command]
+pub fn move_workspace_markdown_file(
+    root_path: String,
+    source_path: String,
+    target_dir: String,
+) -> Result<OpenFileResponse, String> {
+    let root = normalize_existing_path(&root_path)?;
+    if !root.is_dir() {
+        return Err(format!("{} is not a folder.", root.display()));
+    }
+
+    let source = normalize_existing_path(&source_path)?;
+    ensure_path_inside_root(&root, &source)?;
+    ensure_markdown_file(&source)?;
+
+    let target_parent = normalize_existing_path(&target_dir)?;
+    if !target_parent.is_dir() {
+        return Err(format!("{} is not a folder.", target_parent.display()));
+    }
+    ensure_path_inside_root(&root, &target_parent)?;
+
+    let Some(file_name) = source.file_name() else {
+        return Err("Source file has no file name.".to_string());
+    };
+    let target = target_parent.join(file_name);
+    ensure_path_inside_root(&root, &target)?;
+
+    if normalize_key(&source) == normalize_key(&target) {
+        let content = fs::read_to_string(&source)
+            .map_err(|error| format!("Failed to read {}: {error}", source.display()))?;
+        return Ok(OpenFileResponse {
+            path: path_to_string(&source),
+            content,
+            modified_at: file_modified_at(&source)?,
+        });
+    }
+
+    if target.exists() {
+        return Err(format!("{} already exists.", target.display()));
+    }
+
+    fs::rename(&source, &target).map_err(|error| {
+        format!(
+            "Failed to move {} to {}: {error}",
+            source.display(),
+            target.display()
+        )
+    })?;
+
+    let content = fs::read_to_string(&target)
+        .map_err(|error| format!("Failed to read {}: {error}", target.display()))?;
+
+    Ok(OpenFileResponse {
+        path: path_to_string(&target),
+        content,
+        modified_at: file_modified_at(&target)?,
     })
 }
 
@@ -458,6 +593,66 @@ fn collect_markdown_files(root: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
+fn build_workspace_tree(root: &Path, depth: usize) -> Result<Vec<WorkspaceTreeEntry>, String> {
+    if depth > 128 {
+        return Ok(Vec::new());
+    }
+
+    let read_dir = match fs::read_dir(root) {
+        Ok(read_dir) => read_dir,
+        Err(error) if depth == 0 => {
+            return Err(format!("Failed to read {}: {error}", root.display()));
+        }
+        Err(_) => return Ok(Vec::new()),
+    };
+
+    let mut entries = Vec::new();
+
+    for entry in read_dir.filter_map(Result::ok) {
+        let path = entry.path();
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+
+        if file_type.is_symlink() {
+            continue;
+        }
+
+        if file_type.is_dir() {
+            let children = build_workspace_tree(&path, depth + 1)?;
+            if !children.is_empty() {
+                entries.push(WorkspaceTreeEntry {
+                    path: path_to_string(&path),
+                    name: entry.file_name().to_string_lossy().into_owned(),
+                    kind: "folder".to_string(),
+                    children,
+                });
+            }
+            continue;
+        }
+
+        if file_type.is_file() && is_markdown_path(&path) {
+            entries.push(WorkspaceTreeEntry {
+                path: path_to_string(&path),
+                name: entry.file_name().to_string_lossy().into_owned(),
+                kind: "file".to_string(),
+                children: Vec::new(),
+            });
+        }
+    }
+
+    entries.sort_by(|left, right| {
+        let left_folder = left.kind == "folder";
+        let right_folder = right.kind == "folder";
+
+        right_folder
+            .cmp(&left_folder)
+            .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase()))
+    });
+
+    Ok(entries)
+}
+
 fn compact_preview(line: &str) -> String {
     let preview = line.split_whitespace().collect::<Vec<_>>().join(" ");
     if preview.is_empty() {
@@ -534,6 +729,46 @@ fn ensure_markdown_extension(path: &Path) -> Result<(), String> {
             path.display()
         ))
     }
+}
+
+fn ensure_path_inside_root(root: &Path, path: &Path) -> Result<(), String> {
+    let root_key = normalize_key(root).trim_end_matches('/').to_string();
+    let path_key = normalize_key(path);
+
+    if path_key == root_key || path_key.starts_with(&format!("{root_key}/")) {
+        Ok(())
+    } else {
+        Err(format!("{} is outside the workspace.", path.display()))
+    }
+}
+
+fn normalize_new_markdown_file_name(file_name: &str) -> Result<String, String> {
+    let trimmed = file_name.trim();
+    if trimmed.is_empty() {
+        return Err("Enter a file name.".to_string());
+    }
+
+    if trimmed == "." || trimmed == ".." {
+        return Err("Enter a valid file name.".to_string());
+    }
+
+    if trimmed.chars().any(|character| {
+        matches!(
+            character,
+            '/' | '\\' | '<' | '>' | ':' | '"' | '|' | '?' | '*'
+        ) || character.is_control()
+    }) {
+        return Err("File name contains an unsupported character.".to_string());
+    }
+
+    let name = if Path::new(trimmed).extension().is_some() {
+        trimmed.to_string()
+    } else {
+        format!("{trimmed}.md")
+    };
+
+    ensure_markdown_extension(Path::new(&name))?;
+    Ok(name)
 }
 
 fn is_markdown_path(path: &Path) -> bool {

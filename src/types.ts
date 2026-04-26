@@ -1,4 +1,5 @@
-export type SidebarPanel = "search" | "outline";
+export type SidebarPanel = "tree" | "outline";
+export type WorkspaceTreeNodeKind = "folder" | "file";
 export type DragKind = "files" | "folder" | "invalid" | null;
 export type TabSyncState = "clean" | "deleted" | "conflict";
 
@@ -50,6 +51,13 @@ export interface SaveFileResponse {
 export interface WorkspaceInfo {
   rootPath: string;
   markdownFileCount: number;
+}
+
+export interface WorkspaceTreeNode {
+  path: string;
+  name: string;
+  kind: WorkspaceTreeNodeKind;
+  children: WorkspaceTreeNode[];
 }
 
 export interface DropClassification {

@@ -7,6 +7,7 @@ import {
   useState,
   type ChangeEvent,
   type CSSProperties,
+  type DragEvent,
 } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -14,11 +15,14 @@ import { confirm, message, open } from "@tauri-apps/plugin-dialog";
 import {
   WATCH_EVENT_NAME,
   classifyDropPaths,
+  createWorkspaceMarkdownFileCommand,
+  deleteWorkspaceMarkdownFileCommand,
+  listWorkspaceTreeCommand,
   listSystemFontsCommand,
+  moveWorkspaceMarkdownFileCommand,
   openFileCommand,
   openWorkspaceCommand,
   saveFileCommand,
-  searchWorkspaceCommand,
   startupFilePathsCommand,
   watchPathsCommand,
 } from "./commands";
@@ -28,17 +32,16 @@ import {
   isInsideWorkspace,
   normalizeObsidianMarkdown,
   normalizePathForKey,
-  searchInDocument,
   toRelativePath,
 } from "./markdown";
 import type {
   DocumentTab,
   DragState,
   HeadingItem,
-  SearchHit,
   SidebarState,
   WatchEventPayload,
   WorkspaceInfo,
+  WorkspaceTreeNode,
 } from "./types";
 import MilkdownEditor from "./MilkdownEditor";
 import "./App.css";
@@ -84,7 +87,7 @@ const legacyEditorFontFamilies: Record<string, string> = {
 
 const defaultSidebarState: SidebarState = {
   open: false,
-  activePanel: "search",
+  activePanel: "tree",
 };
 
 const defaultDragState: DragState = {
@@ -97,11 +100,18 @@ function App() {
   const [activePath, setActivePath] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
   const [sidebarState, setSidebarState] = useState<SidebarState>(defaultSidebarState);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchNotice, setSearchNotice] = useState(
-    "Open a folder to search across files, or search the active document.",
+  const [workspaceTree, setWorkspaceTree] = useState<WorkspaceTreeNode[]>([]);
+  const [expandedTreePaths, setExpandedTreePaths] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [treeLoading, setTreeLoading] = useState(false);
+  const [treeNotice, setTreeNotice] = useState("Open a folder to browse files.");
+  const [selectedTreePath, setSelectedTreePath] = useState<string | null>(null);
+  const [draggingTreeFilePath, setDraggingTreeFilePath] = useState<string | null>(
+    null,
+  );
+  const [treeDropTargetPath, setTreeDropTargetPath] = useState<string | null>(
+    null,
   );
   const [outline, setOutline] = useState<HeadingItem[]>([]);
   const [dragState, setDragState] = useState<DragState>(defaultDragState);
@@ -140,7 +150,6 @@ function App() {
     tabs.find(
       (tab) => normalizePathForKey(tab.path) === normalizePathForKey(activePath ?? ""),
     ) ?? null;
-  const deferredSearchQuery = useDeferredValue(searchQuery.trim());
   const deferredActiveContent = useDeferredValue(activeTab?.content ?? "");
   const tabPathKey = tabs
     .map((tab) => normalizePathForKey(tab.path))
@@ -188,6 +197,27 @@ function App() {
     currentFontPage * FONT_PAGE_SIZE,
     currentFontPage * FONT_PAGE_SIZE + FONT_PAGE_SIZE,
   );
+  const selectedTreeNode = selectedTreePath
+    ? findWorkspaceTreeNode(workspaceTree, selectedTreePath)
+    : null;
+  const selectedTreeCreateParent =
+    selectedTreeNode?.kind === "folder"
+      ? selectedTreeNode.path
+      : selectedTreeNode?.kind === "file"
+        ? getParentPath(selectedTreeNode.path)
+        : null;
+  const treeLocationPath =
+    selectedTreeNode?.kind === "folder"
+      ? selectedTreeNode.path
+      : selectedTreeNode?.kind === "file"
+        ? getParentPath(selectedTreeNode.path)
+        : workspace?.rootPath ?? null;
+  const sidebarLocationLabel =
+    sidebarState.activePanel === "tree"
+      ? treeLocationPath
+        ? normalizeDisplayPath(treeLocationPath)
+        : "Open a folder to browse files."
+      : activeLocationLabel;
   const editorContentWidth =
     editorWidthMode === "full"
       ? "calc(100% - 24px)"
@@ -310,8 +340,16 @@ function App() {
 
           const normalized = normalizePathForKey(payload.path);
           const ignoreUntil = ignoreWatchUntilRef.current[normalized] ?? 0;
-          if (payload.kind === "changed" && ignoreUntil > Date.now()) {
+          if (ignoreUntil > Date.now()) {
             return;
+          }
+
+          const currentWorkspace = workspaceRef.current;
+          if (
+            currentWorkspace &&
+            isInsideWorkspace(payload.path, currentWorkspace.rootPath)
+          ) {
+            void reloadWorkspace(currentWorkspace.rootPath, { silent: true });
           }
 
           const matchingTab = tabsRef.current.find(
@@ -445,94 +483,6 @@ function App() {
   }, [deferredActiveContent]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const runSearch = async () => {
-      if (!deferredSearchQuery) {
-        startTransition(() => {
-          setSearchResults([]);
-          setSearchLoading(false);
-          setSearchNotice(
-            workspace
-              ? "Search the current workspace."
-              : activeTab
-                ? "Search the active document."
-                : "Open a folder to search across files, or search the active document.",
-          );
-        });
-        return;
-      }
-
-      if (workspace) {
-        setSearchLoading(true);
-        try {
-          const results = await searchWorkspaceCommand(
-            workspace.rootPath,
-            deferredSearchQuery,
-          );
-          if (cancelled) {
-            return;
-          }
-          startTransition(() => {
-            setSearchResults(results);
-            setSearchLoading(false);
-            setSearchNotice(
-              results.length > 0
-                ? `${results.length} match${results.length === 1 ? "" : "es"} in ${workspace.markdownFileCount} markdown file${workspace.markdownFileCount === 1 ? "" : "s"}.`
-                : "No matches in the current workspace.",
-            );
-          });
-        } catch (error) {
-          if (cancelled) {
-            return;
-          }
-          startTransition(() => {
-            setSearchResults([]);
-            setSearchLoading(false);
-            setSearchNotice(asErrorMessage(error));
-          });
-        }
-        return;
-      }
-
-      if (!activeTab) {
-        startTransition(() => {
-          setSearchResults([]);
-          setSearchLoading(false);
-          setSearchNotice("Open a markdown file before searching.");
-        });
-        return;
-      }
-
-      const results = searchInDocument(
-        activeTab.path,
-        activeTab.content,
-        deferredSearchQuery,
-      );
-
-      if (cancelled) {
-        return;
-      }
-
-      startTransition(() => {
-        setSearchResults(results);
-        setSearchLoading(false);
-        setSearchNotice(
-          results.length > 0
-            ? `${results.length} match${results.length === 1 ? "" : "es"} in the active document.`
-            : "No matches in the active document.",
-        );
-      });
-    };
-
-    void runSearch();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [deferredSearchQuery, workspace, activeTab?.path, activeTab?.content]);
-
-  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const modifierPressed = event.ctrlKey || event.metaKey;
       if (!modifierPressed) {
@@ -598,6 +548,9 @@ function App() {
 
     if (existingTab && !options?.reload) {
       setActivePath(existingTab.path);
+      if (isInsideWorkspace(existingTab.path, workspaceRef.current?.rootPath ?? null)) {
+        setSelectedTreePath(existingTab.path);
+      }
       if (options?.jump) {
         setPendingJump({
           ...options.jump,
@@ -635,6 +588,9 @@ function App() {
       return nextTabs;
     });
     setActivePath(file.path);
+    if (isInsideWorkspace(file.path, workspaceRef.current?.rootPath ?? null)) {
+      setSelectedTreePath(file.path);
+    }
     if (options?.jump) {
       setPendingJump({
         ...options.jump,
@@ -647,6 +603,52 @@ function App() {
     }
 
     return tab;
+  }
+
+  async function reloadWorkspace(
+    rootPath: string,
+    options?: {
+      silent?: boolean;
+      resetExpanded?: boolean;
+    },
+  ) {
+    setTreeLoading(true);
+
+    try {
+      const [nextWorkspace, nextTree] = await Promise.all([
+        openWorkspaceCommand(rootPath),
+        listWorkspaceTreeCommand(rootPath),
+      ]);
+
+      setWorkspace(nextWorkspace);
+      setWorkspaceTree(nextTree);
+      if (options?.resetExpanded) {
+        setExpandedTreePaths(new Set());
+      }
+      setTreeNotice(
+        nextTree.length > 0
+          ? `${nextWorkspace.markdownFileCount} markdown file${nextWorkspace.markdownFileCount === 1 ? "" : "s"} in this workspace.`
+          : "No markdown files found in this workspace.",
+      );
+      setTabs((currentTabs) =>
+        currentTabs.map((tab) => ({
+          ...tab,
+          inWorkspace: isInsideWorkspace(tab.path, nextWorkspace.rootPath),
+        })),
+      );
+
+      return nextWorkspace;
+    } catch (error) {
+      const errorMessage = asErrorMessage(error);
+      setWorkspaceTree([]);
+      setTreeNotice(errorMessage);
+      if (!options?.silent) {
+        setStatusMessage(errorMessage);
+      }
+      throw error;
+    } finally {
+      setTreeLoading(false);
+    }
   }
 
   async function openFilesFromPicker() {
@@ -697,17 +699,13 @@ function App() {
       }
     }
 
-    const nextWorkspace = await openWorkspaceCommand(rootPath);
-    setWorkspace(nextWorkspace);
-    setTabs((currentTabs) =>
-      currentTabs.map((tab) => ({
-        ...tab,
-        inWorkspace: isInsideWorkspace(tab.path, nextWorkspace.rootPath),
-      })),
-    );
+    const nextWorkspace = await reloadWorkspace(rootPath, {
+      resetExpanded: true,
+    });
+    setSelectedTreePath(null);
     setSidebarState({
       open: true,
-      activePanel: "search",
+      activePanel: "tree",
     });
     setStatusMessage(`Workspace open: ${nextWorkspace.rootPath}`);
   }
@@ -874,27 +872,393 @@ function App() {
     }
   }
 
-  async function handleSearchHit(hit: SearchHit) {
+  async function handleTreeNodeClick(node: WorkspaceTreeNode) {
+    setSelectedTreePath(node.path);
+
+    if (node.kind === "folder") {
+      toggleTreeFolder(node.path);
+      return;
+    }
+
+    if (node.kind !== "file") {
+      return;
+    }
+
     try {
-      await loadMarkdownFile(hit.path, {
-        jump: {
-          path: hit.path,
-          line: hit.line,
-          column: hit.column,
-          needle: hit.preview !== "(blank line)" ? hit.preview : undefined,
-        },
-      });
+      await loadMarkdownFile(node.path);
       setSidebarState((currentSidebar) => ({
         ...currentSidebar,
         open: true,
-        activePanel: "search",
+        activePanel: "tree",
       }));
     } catch (error) {
       await message(asErrorMessage(error), {
-        title: "Open match failed",
+        title: "Open file failed",
         kind: "error",
       });
     }
+  }
+
+  async function createTreeFile() {
+    const currentWorkspace = workspaceRef.current;
+    if (!currentWorkspace) {
+      setStatusMessage("Open a folder before creating a markdown file.");
+      return;
+    }
+
+    const fileName = window.prompt("New markdown file name", "untitled.md");
+    if (fileName === null) {
+      return;
+    }
+
+    try {
+      const file = await createWorkspaceMarkdownFileCommand(
+        currentWorkspace.rootPath,
+        selectedTreeCreateParent,
+        fileName,
+      );
+      await reloadWorkspace(currentWorkspace.rootPath, { silent: true });
+      expandTreeAncestors(file.path, currentWorkspace.rootPath);
+      setSelectedTreePath(file.path);
+      await loadMarkdownFile(file.path, { silent: true });
+      setStatusMessage(
+        `Created ${toRelativePath(file.path, currentWorkspace.rootPath)}.`,
+      );
+    } catch (error) {
+      await message(asErrorMessage(error), {
+        title: "Create file failed",
+        kind: "error",
+      });
+    }
+  }
+
+  async function deleteSelectedTreeFile() {
+    const currentWorkspace = workspaceRef.current;
+    const targetNode = selectedTreeNode;
+
+    if (!currentWorkspace || targetNode?.kind !== "file") {
+      return;
+    }
+
+    const relativePath = toRelativePath(targetNode.path, currentWorkspace.rootPath);
+    const matchingTab = tabsRef.current.find(
+      (tab) =>
+        normalizePathForKey(tab.path) === normalizePathForKey(targetNode.path),
+    );
+    const shouldDelete = await confirm(
+      matchingTab?.dirty
+        ? `Delete ${relativePath}? The open tab has unsaved changes. This cannot be undone.`
+        : `Delete ${relativePath}? This cannot be undone.`,
+      {
+        title: "Delete markdown file",
+        kind: "warning",
+        okLabel: "Delete",
+        cancelLabel: "Cancel",
+      },
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    try {
+      const deletedPath = await deleteWorkspaceMarkdownFileCommand(
+        currentWorkspace.rootPath,
+        targetNode.path,
+      );
+      const normalizedDeletedPath = normalizePathForKey(deletedPath);
+      const currentTabs = tabsRef.current;
+      const deletedTabIndex = currentTabs.findIndex(
+        (tab) => normalizePathForKey(tab.path) === normalizedDeletedPath,
+      );
+      const fallbackTab =
+        currentTabs[deletedTabIndex + 1] ??
+        currentTabs[deletedTabIndex - 1] ??
+        null;
+
+      setTabs((nextTabs) =>
+        nextTabs.filter(
+          (tab) => normalizePathForKey(tab.path) !== normalizedDeletedPath,
+        ),
+      );
+
+      if (
+        normalizePathForKey(activePathRef.current ?? "") === normalizedDeletedPath
+      ) {
+        setActivePath(fallbackTab?.path ?? null);
+      }
+
+      setSelectedTreePath(null);
+      await reloadWorkspace(currentWorkspace.rootPath, { silent: true });
+      setStatusMessage(`Deleted ${relativePath}.`);
+    } catch (error) {
+      await message(asErrorMessage(error), {
+        title: "Delete file failed",
+        kind: "error",
+      });
+    }
+  }
+
+  function handleTreeFileDragStart(
+    event: DragEvent<HTMLButtonElement>,
+    node: WorkspaceTreeNode,
+  ) {
+    if (node.kind !== "file") {
+      event.preventDefault();
+      return;
+    }
+
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", node.path);
+    event.dataTransfer.setData("application/x-markdown-editor-tree-file", node.path);
+    setDraggingTreeFilePath(node.path);
+  }
+
+  function handleTreeFileDragEnd() {
+    setDraggingTreeFilePath(null);
+    setTreeDropTargetPath(null);
+  }
+
+  function handleTreeFolderDragOver(
+    event: DragEvent<HTMLButtonElement>,
+    node: WorkspaceTreeNode,
+  ) {
+    if (node.kind !== "folder" || !draggingTreeFilePath) {
+      return;
+    }
+
+    if (!canMoveTreeFileToFolder(draggingTreeFilePath, node.path)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+    setTreeDropTargetPath(node.path);
+  }
+
+  function handleTreeFolderDragLeave(event: DragEvent<HTMLButtonElement>) {
+    const relatedTarget = event.relatedTarget;
+    if (
+      relatedTarget instanceof Node &&
+      event.currentTarget.contains(relatedTarget)
+    ) {
+      return;
+    }
+
+    setTreeDropTargetPath(null);
+  }
+
+  async function handleTreeFolderDrop(
+    event: DragEvent<HTMLButtonElement>,
+    node: WorkspaceTreeNode,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const sourcePath =
+      draggingTreeFilePath ||
+      event.dataTransfer.getData("application/x-markdown-editor-tree-file") ||
+      event.dataTransfer.getData("text/plain");
+
+    setDraggingTreeFilePath(null);
+    setTreeDropTargetPath(null);
+
+    if (node.kind !== "folder" || !sourcePath) {
+      return;
+    }
+
+    await moveTreeFileToFolder(sourcePath, node.path);
+  }
+
+  function canMoveTreeFileToFolder(sourcePath: string, targetDir: string) {
+    const sourceNode = findWorkspaceTreeNode(workspaceTree, sourcePath);
+    if (sourceNode?.kind !== "file") {
+      return false;
+    }
+
+    return (
+      normalizePathForKey(getParentPath(sourcePath)) !==
+      normalizePathForKey(targetDir)
+    );
+  }
+
+  async function moveTreeFileToFolder(sourcePath: string, targetDir: string) {
+    const currentWorkspace = workspaceRef.current;
+    if (!currentWorkspace) {
+      return;
+    }
+
+    if (!canMoveTreeFileToFolder(sourcePath, targetDir)) {
+      setStatusMessage("The file is already in that folder.");
+      return;
+    }
+
+    const sourceKey = normalizePathForKey(sourcePath);
+    const predictedTargetPath = joinPathForDisplay(targetDir, getFileName(sourcePath));
+    ignoreWatchUntilRef.current[sourceKey] = Date.now() + 1500;
+    ignoreWatchUntilRef.current[normalizePathForKey(predictedTargetPath)] =
+      Date.now() + 1500;
+
+    try {
+      const movedFile = await moveWorkspaceMarkdownFileCommand(
+        currentWorkspace.rootPath,
+        sourcePath,
+        targetDir,
+      );
+      const movedKey = normalizePathForKey(movedFile.path);
+      ignoreWatchUntilRef.current[sourceKey] = Date.now() + 1500;
+      ignoreWatchUntilRef.current[movedKey] = Date.now() + 1500;
+
+      setTabs((currentTabs) =>
+        currentTabs.map((tab) => {
+          if (normalizePathForKey(tab.path) !== sourceKey) {
+            return tab;
+          }
+
+          return {
+            ...tab,
+            path: movedFile.path,
+            title: getFileName(movedFile.path),
+            content: tab.dirty ? tab.content : movedFile.content,
+            savedContent: movedFile.content,
+            lastSavedAt: movedFile.modifiedAt,
+            syncState: "clean",
+          };
+        }),
+      );
+
+      if (normalizePathForKey(activePathRef.current ?? "") === sourceKey) {
+        setActivePath(movedFile.path);
+      }
+
+      await reloadWorkspace(currentWorkspace.rootPath, { silent: true });
+      expandTreeAncestors(movedFile.path, currentWorkspace.rootPath);
+      setSelectedTreePath(movedFile.path);
+      setStatusMessage(
+        `Moved ${getFileName(movedFile.path)} to ${toRelativePath(
+          targetDir,
+          currentWorkspace.rootPath,
+        )}.`,
+      );
+    } catch (error) {
+      await message(asErrorMessage(error), {
+        title: "Move file failed",
+        kind: "error",
+      });
+    }
+  }
+
+  function renderWorkspaceTreeNodes(nodes: WorkspaceTreeNode[], depth = 0) {
+    return nodes.map((node) => {
+      const nodeKey = normalizePathForKey(node.path);
+      const hasChildren = node.children.length > 0;
+      const expanded = node.kind === "folder" && expandedTreePaths.has(nodeKey);
+      const dragging =
+        node.kind === "file" &&
+        draggingTreeFilePath !== null &&
+        normalizePathForKey(draggingTreeFilePath) === nodeKey;
+      const dropTarget =
+        node.kind === "folder" &&
+        treeDropTargetPath !== null &&
+        normalizePathForKey(treeDropTargetPath) === nodeKey;
+      const selected =
+        selectedTreePath !== null &&
+        normalizePathForKey(selectedTreePath) === nodeKey;
+      const active =
+        node.kind === "file" &&
+        activeTab !== null &&
+        normalizePathForKey(activeTab.path) === nodeKey;
+
+      return (
+        <div key={node.path} className="tree-node">
+          <button
+            type="button"
+            className={`tree-item tree-item--${node.kind} ${
+              hasChildren ? "has-children" : ""
+            } ${expanded ? "is-expanded" : ""} ${
+              dragging ? "is-dragging" : ""
+            } ${dropTarget ? "is-drop-target" : ""} ${
+              selected ? "is-selected" : ""
+            } ${active ? "is-active" : ""}`}
+            style={{ paddingLeft: `${12 + depth * 16}px` }}
+            title={node.path}
+            aria-expanded={node.kind === "folder" ? expanded : undefined}
+            draggable={node.kind === "file"}
+            onClick={() => void handleTreeNodeClick(node)}
+            onDragStart={(event) => handleTreeFileDragStart(event, node)}
+            onDragEnd={handleTreeFileDragEnd}
+            onDragOver={(event) => handleTreeFolderDragOver(event, node)}
+            onDragLeave={handleTreeFolderDragLeave}
+            onDrop={(event) => void handleTreeFolderDrop(event, node)}
+          >
+            <span
+              className={`tree-item__toggle ${
+                node.kind === "folder" && hasChildren
+                  ? ""
+                  : "tree-item__toggle--placeholder"
+              }`}
+              aria-hidden="true"
+            />
+            <span
+              className={`tree-item__icon tree-item__icon--${node.kind}`}
+              aria-hidden="true"
+            />
+            <span className="tree-item__name">{node.name}</span>
+          </button>
+          {node.kind === "folder" && expanded && hasChildren ? (
+            <div className="tree-node__children">
+              {renderWorkspaceTreeNodes(node.children, depth + 1)}
+            </div>
+          ) : null}
+        </div>
+      );
+    });
+  }
+
+  function toggleTreeFolder(path: string) {
+    const key = normalizePathForKey(path);
+
+    setExpandedTreePaths((currentExpanded) => {
+      const nextExpanded = new Set(currentExpanded);
+
+      if (nextExpanded.has(key)) {
+        nextExpanded.delete(key);
+      } else {
+        nextExpanded.add(key);
+      }
+
+      return nextExpanded;
+    });
+  }
+
+  function expandTreeAncestors(path: string, rootPath: string) {
+    const rootKey = normalizePathForKey(rootPath).replace(/\/+$/, "");
+    const ancestorKeys: string[] = [];
+    let currentPath = getParentPath(path);
+    let currentKey = normalizePathForKey(currentPath).replace(/\/+$/, "");
+
+    while (currentKey && currentKey !== rootKey && currentKey.startsWith(`${rootKey}/`)) {
+      ancestorKeys.push(currentKey);
+      currentPath = getParentPath(currentPath);
+      const nextKey = normalizePathForKey(currentPath).replace(/\/+$/, "");
+
+      if (nextKey === currentKey) {
+        break;
+      }
+
+      currentKey = nextKey;
+    }
+
+    if (ancestorKeys.length === 0) {
+      return;
+    }
+
+    setExpandedTreePaths((currentExpanded) => {
+      const nextExpanded = new Set(currentExpanded);
+      ancestorKeys.forEach((key) => nextExpanded.add(key));
+      return nextExpanded;
+    });
   }
 
   function handleOutlineJump(item: HeadingItem) {
@@ -1048,9 +1412,9 @@ function App() {
           <div className="sidebar-panel__header">
             <div>
               <h1>
-                {sidebarState.activePanel === "search" ? "Search" : "Outline"}
+                {sidebarState.activePanel === "tree" ? "Tree" : "Outline"}
               </h1>
-              <p>{activeLocationLabel}</p>
+              <p>{sidebarLocationLabel}</p>
             </div>
             {workspace ? (
               <span className="meta-pill">
@@ -1060,42 +1424,59 @@ function App() {
             ) : null}
           </div>
 
-          {sidebarState.activePanel === "search" ? (
+          {sidebarState.activePanel === "tree" ? (
             <div className="sidebar-panel__body">
-              <label className="panel-field">
-                <span>Find text</span>
-                <input
-                  type="text"
-                  placeholder={
-                    workspace ? "Search the workspace..." : "Search this file..."
+              <div className="tree-actions">
+                <button
+                  type="button"
+                  aria-label="Open folder"
+                  title="Open folder"
+                  onClick={() => void openFolderFromPicker()}
+                >
+                  <span aria-hidden="true">📂</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label="New file"
+                  title="New file"
+                  onClick={() => void createTreeFile()}
+                  disabled={!workspace}
+                >
+                  <span aria-hidden="true">＋</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Delete file"
+                  title="Delete file"
+                  onClick={() => void deleteSelectedTreeFile()}
+                  disabled={!workspace || selectedTreeNode?.kind !== "file"}
+                >
+                  <span aria-hidden="true">🗑</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Refresh tree"
+                  title="Refresh tree"
+                  onClick={() =>
+                    workspace
+                      ? void reloadWorkspace(workspace.rootPath)
+                      : undefined
                   }
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.currentTarget.value)}
-                />
-              </label>
-              <p className="panel-note">{searchNotice}</p>
-              <div className="search-results">
-                {searchLoading ? (
-                  <div className="empty-panel">Searching...</div>
-                ) : searchResults.length === 0 ? (
-                  <div className="empty-panel">No results to show.</div>
+                  disabled={!workspace || treeLoading}
+                >
+                  <span aria-hidden="true">↻</span>
+                </button>
+              </div>
+              <p className="panel-note">{treeLoading ? "Loading tree..." : treeNotice}</p>
+              <div className="tree-list">
+                {!workspace ? (
+                  <div className="empty-panel">Open a folder to show the tree.</div>
+                ) : treeLoading && workspaceTree.length === 0 ? (
+                  <div className="empty-panel">Loading tree...</div>
+                ) : workspaceTree.length === 0 ? (
+                  <div className="empty-panel">No markdown files found.</div>
                 ) : (
-                  searchResults.map((result) => (
-                    <button
-                      key={`${result.path}:${result.line}:${result.column}`}
-                      type="button"
-                      className="search-hit"
-                      onClick={() => void handleSearchHit(result)}
-                    >
-                      <span className="search-hit__path">
-                        {toRelativePath(result.path, workspace?.rootPath ?? null)}
-                      </span>
-                      <span className="search-hit__preview">{result.preview}</span>
-                      <span className="search-hit__meta">
-                        Line {result.line}, Col {result.column}
-                      </span>
-                    </button>
-                  ))
+                  renderWorkspaceTreeNodes(workspaceTree)
                 )}
               </div>
             </div>
@@ -1137,12 +1518,12 @@ function App() {
               <button
                 type="button"
                 className={topbarPanelButtonClass(
-                  sidebarState.open && sidebarState.activePanel === "search",
+                  sidebarState.open && sidebarState.activePanel === "tree",
                 )}
-                aria-pressed={sidebarState.open && sidebarState.activePanel === "search"}
-                onClick={() => toggleSidebarPanel("search")}
+                aria-pressed={sidebarState.open && sidebarState.activePanel === "tree"}
+                onClick={() => toggleSidebarPanel("tree")}
               >
-                Search
+                Tree
               </button>
               <button
                 type="button"
@@ -1385,7 +1766,7 @@ function App() {
                   <div className="empty-state__copy">
                     <strong>No markdown file open</strong>
                     <p>
-                      Open a markdown file, open a folder for workspace search, or
+                      Open a markdown file, open a folder for the tree, or
                       drop a file directly onto the window.
                     </p>
                     <div className="app-actions">
@@ -1424,8 +1805,8 @@ function App() {
           <span>Font: {activeFontLabel}</span>
           <span>
             {sidebarState.open
-              ? sidebarState.activePanel === "search"
-                ? "Search panel"
+              ? sidebarState.activePanel === "tree"
+                ? "Tree panel"
                 : "Outline panel"
               : "Panel hidden"}
           </span>
@@ -1456,6 +1837,42 @@ function App() {
 
 function topbarPanelButtonClass(active: boolean) {
   return `tabs__panel-button ${active ? "is-active" : ""}`;
+}
+
+function findWorkspaceTreeNode(
+  nodes: WorkspaceTreeNode[],
+  path: string,
+): WorkspaceTreeNode | null {
+  const normalizedPath = normalizePathForKey(path);
+
+  for (const node of nodes) {
+    if (normalizePathForKey(node.path) === normalizedPath) {
+      return node;
+    }
+
+    const childMatch = findWorkspaceTreeNode(node.children, path);
+    if (childMatch) {
+      return childMatch;
+    }
+  }
+
+  return null;
+}
+
+function getParentPath(path: string) {
+  const normalizedPath = path.replace(/\\/g, "/");
+  const separatorIndex = normalizedPath.lastIndexOf("/");
+
+  if (separatorIndex === -1) {
+    return path;
+  }
+
+  return normalizedPath.slice(0, separatorIndex);
+}
+
+function joinPathForDisplay(parentPath: string, fileName: string) {
+  const separator = parentPath.includes("\\") && !parentPath.includes("/") ? "\\" : "/";
+  return `${parentPath.replace(/[\\/]+$/, "")}${separator}${fileName}`;
 }
 
 function normalizeDisplayPath(path: string) {
