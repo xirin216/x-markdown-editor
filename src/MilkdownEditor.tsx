@@ -27,6 +27,7 @@ import {
   blockquoteSchema,
   bulletListSchema,
   codeBlockSchema,
+  hardbreakSchema,
   headingSchema,
   htmlSchema,
   orderedListSchema,
@@ -39,9 +40,10 @@ import {
   wrapInBlockTypeCommand,
 } from "@milkdown/kit/preset/commonmark";
 import { TextSelection } from "@milkdown/kit/prose/state";
+import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { createTable } from "@milkdown/kit/preset/gfm";
-import { replaceAll } from "@milkdown/kit/utils";
+import { $remark, replaceAll } from "@milkdown/kit/utils";
 import { normalizeSerializedMarkdown } from "./markdown";
 import { milkdownHtmlPreview } from "./milkdownHtmlPreview";
 
@@ -66,16 +68,33 @@ type ToolbarButton = {
 
 type BulletMarker = "-" | "*" | "+";
 
+type RemarkNode = {
+  type?: string;
+  value?: unknown;
+  data?: unknown;
+  children?: RemarkNode[];
+  position?: {
+    start?: { line?: number };
+    end?: { line?: number };
+  };
+};
+
 const USER_EDIT_GRACE_MS = 1200;
 const pairedHtmlLinePattern =
   /^<([A-Za-z][A-Za-z0-9:-]*)(?:\s[^<>]*)?>[\s\S]*<\/([A-Za-z][A-Za-z0-9:-]*)>$/;
 const blocksRequiringDefaultJoin = new Set([
   "blockquote",
-  "code",
   "html",
   "table",
   "thematicBreak",
 ]);
+
+const obsidianLineBreakRemarkPlugin = $remark(
+  "obsidianLineBreak",
+  () => () => (tree) => {
+    normalizeObsidianRemarkLineBreaks(tree as RemarkNode);
+  },
+);
 
 const headingButtons: ToolbarButton[] = [
   {
@@ -260,6 +279,7 @@ function MilkdownEditorInner({
       },
     });
     crepe.editor.use(milkdownHtmlPreview);
+    crepe.editor.use(obsidianLineBreakRemarkPlugin);
     crepe.editor.config((ctx) => {
       const bullet = preferredBulletMarkerRef.current;
       const bulletOther: BulletMarker = bullet === "*" ? "-" : "*";
@@ -431,6 +451,21 @@ function MilkdownEditorInner({
       return;
     }
 
+    editor.action((ctx) => {
+      normalizeLineBreakNodes(ctx.get(editorViewCtx), ctx);
+    });
+  }, [get, loading]);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    const editor = get();
+    if (!editor) {
+      return;
+    }
+
     if (value === lastMarkdownRef.current) {
       return;
     }
@@ -439,6 +474,9 @@ function MilkdownEditorInner({
     lastMarkdownRef.current = value;
     userEditUntilRef.current = 0;
     editor.action(replaceAll(value, true));
+    editor.action((ctx) => {
+      normalizeLineBreakNodes(ctx.get(editorViewCtx), ctx);
+    });
   }, [get, loading, value]);
 
   useEffect(() => {
@@ -552,6 +590,127 @@ function MilkdownEditorInner({
   );
 }
 
+function normalizeObsidianRemarkLineBreaks(node: RemarkNode) {
+  insertEmptyParagraphsForSourceGaps(node);
+  convertInlineRemarkBreaksToTextNewlines(node);
+}
+
+function insertEmptyParagraphsForSourceGaps(node: RemarkNode) {
+  if (!node.children) {
+    return;
+  }
+
+  const nextChildren: RemarkNode[] = [];
+
+  node.children.forEach((child) => {
+    const previous = nextChildren[nextChildren.length - 1];
+    const lineBreakCount = getSourceLineBreakCount(previous, child);
+
+    if (shouldPreserveSourceGap(node, previous, child, lineBreakCount)) {
+      for (let index = 1; index < lineBreakCount; index += 1) {
+        nextChildren.push(createEmptyParagraph());
+      }
+    }
+
+    nextChildren.push(child);
+  });
+
+  node.children = nextChildren;
+
+  node.children.forEach((child) => insertEmptyParagraphsForSourceGaps(child));
+}
+
+function shouldPreserveSourceGap(
+  parent: RemarkNode,
+  previous: RemarkNode | undefined,
+  next: RemarkNode,
+  lineBreakCount: number,
+) {
+  return (
+    lineBreakCount >= 2 &&
+    isFlowContainer(parent) &&
+    Boolean(previous) &&
+    !isListItemBoundary(previous, next)
+  );
+}
+
+function getSourceLineBreakCount(
+  previous: RemarkNode | undefined,
+  next: RemarkNode,
+) {
+  const previousEndLine = previous?.position?.end?.line;
+  const nextStartLine = next.position?.start?.line;
+
+  if (
+    typeof previousEndLine !== "number" ||
+    typeof nextStartLine !== "number"
+  ) {
+    return 0;
+  }
+
+  return nextStartLine - previousEndLine;
+}
+
+function isFlowContainer(node: RemarkNode) {
+  return !node.type || node.type === "root" || node.type === "blockquote";
+}
+
+function isListItemBoundary(previous: RemarkNode | undefined, next: RemarkNode) {
+  return previous?.type === "listItem" || next.type === "listItem";
+}
+
+function createEmptyParagraph(): RemarkNode {
+  return {
+    type: "paragraph",
+    children: [],
+  };
+}
+
+function convertInlineRemarkBreaksToTextNewlines(node: RemarkNode) {
+  if (!node.children) {
+    return;
+  }
+
+  const nextChildren: RemarkNode[] = [];
+
+  node.children.forEach((child) => {
+    if (isInlineRemarkBreak(child)) {
+      appendRemarkText(nextChildren, "\n");
+      return;
+    }
+
+    convertInlineRemarkBreaksToTextNewlines(child);
+    nextChildren.push(child);
+  });
+
+  node.children = nextChildren;
+}
+
+function isInlineRemarkBreak(node: RemarkNode) {
+  return (
+    node.type === "break" &&
+    isPlainRecord(node.data) &&
+    node.data.isInline === true
+  );
+}
+
+function appendRemarkText(children: RemarkNode[], value: string) {
+  const previous = children[children.length - 1];
+  if (previous?.type === "text" && typeof previous.value === "string") {
+    previous.value += value;
+    return;
+  }
+
+  children.push({
+    type: "text",
+    value,
+  });
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function disableNativeSpellcheck(host: HTMLElement) {
   const targets = [
     host,
@@ -587,6 +746,70 @@ function isFormFieldEvent(event: KeyboardEvent) {
     target instanceof HTMLElement &&
     target.closest("textarea, input, select, [contenteditable='false']")
   );
+}
+
+function normalizeLineBreakNodes(view: EditorView, ctx: Ctx) {
+  const hardbreakType = hardbreakSchema.type(ctx);
+  const codeBlockType = codeBlockSchema.type(ctx);
+  const { state } = view;
+  const tr = state.tr;
+  const textReplacements: Array<{
+    pos: number;
+    node: ProseMirrorNode;
+  }> = [];
+  let changed = false;
+
+  state.doc.descendants((node, pos, parent) => {
+    if (node.type === hardbreakType && node.attrs.isInline === true) {
+      tr.setNodeMarkup(pos, undefined, {
+        ...node.attrs,
+        isInline: false,
+      });
+      changed = true;
+      return;
+    }
+
+    if (!node.isText || parent?.type === codeBlockType || !node.text?.includes("\n")) {
+      return;
+    }
+
+    textReplacements.push({ pos, node });
+    changed = true;
+  });
+
+  if (!changed) {
+    return false;
+  }
+
+  textReplacements.reverse().forEach(({ pos, node }) => {
+    const replacement = splitTextNodeWithHardbreaks(node, hardbreakType);
+    tr.replaceWith(pos, pos + node.nodeSize, replacement);
+  });
+
+  tr.setMeta("addToHistory", false);
+  view.dispatch(tr);
+  return true;
+}
+
+function splitTextNodeWithHardbreaks(
+  node: ProseMirrorNode,
+  hardbreakType: ProseMirrorNode["type"],
+) {
+  const text = node.text ?? "";
+  const parts = text.split("\n");
+  const replacement: ProseMirrorNode[] = [];
+
+  parts.forEach((part, index) => {
+    if (part) {
+      replacement.push(node.type.schema.text(part, node.marks));
+    }
+
+    if (index < parts.length - 1) {
+      replacement.push(hardbreakType.create({ isInline: false }));
+    }
+  });
+
+  return replacement;
 }
 
 function convertCurrentLineToHtmlNode(view: EditorView, ctx: Ctx) {

@@ -999,6 +999,7 @@ button {
   font-family: var(--editor-font-family);
   font-size: var(--editor-font-size);
   line-height: 1.78;
+  white-space: break-spaces;
 }
 
 .editor-instance .milkdown .ProseMirror > *:first-child {
@@ -1016,8 +1017,22 @@ button {
 }
 
 .editor-instance .milkdown .ProseMirror p:has(> .milkdown-html-node--block) {
+  margin: 0;
   padding-top: 0;
   padding-bottom: 0;
+  font-size: 0;
+  line-height: 0;
+}
+
+.editor-instance .milkdown .ProseMirror p:has(> .milkdown-html-node--block) br.ProseMirror-trailingBreak {
+  display: none;
+}
+
+.editor-instance .milkdown .ProseMirror [data-type="hardbreak"][data-is-inline="true"] {
+  display: block;
+  height: 0;
+  overflow: hidden;
+  line-height: 0;
 }
 
 .editor-instance .milkdown .ProseMirror h1,
@@ -1142,7 +1157,9 @@ button {
 .editor-instance .milkdown .milkdown-html-node--block {
   display: block;
   width: 100%;
-  margin: 1.2em 0;
+  font-size: var(--editor-font-size);
+  line-height: 1.78;
+  margin: 0;
 }
 
 .editor-instance .milkdown .milkdown-html-node__preview > :first-child {
