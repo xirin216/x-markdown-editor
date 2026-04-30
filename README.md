@@ -14,7 +14,7 @@ A Korean version of this document is available in [README.ko.md](README.ko.md).
 * Drag and drop Markdown files or one workspace folder.
 * Watch opened files and workspace files for external changes.
 * Choose a system font from a searchable, paginated font browser.
-* Persist editor font, text size, page width, toolbar visibility, and related editor settings.
+* Persist editor font, text size, page width, toolbar visibility, header background themes, and related editor settings.
 * Print with editor width, font family, and text size applied to the print layout.
 * Build a Windows NSIS installer and a portable executable for GitHub Releases
 

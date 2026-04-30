@@ -58,6 +58,9 @@ const EDITOR_WIDTH_MODE_STORAGE_KEY = "x-markdown-editor.editor-width-mode";
 const EDITOR_FONT_SIZE_STORAGE_KEY = "x-markdown-editor.editor-font-size";
 const EDITOR_FONT_FAMILY_STORAGE_KEY = "x-markdown-editor.editor-font-family";
 const EDITOR_TOOLBAR_VISIBLE_STORAGE_KEY = "x-markdown-editor.toolbar-visible";
+const HEADER_THEME_MODE_STORAGE_KEY = "x-markdown-editor.header-theme-mode";
+const HEADER_MANUAL_COLORS_STORAGE_KEY =
+  "x-markdown-editor.header-manual-colors";
 const MIN_EDITOR_WIDTH = 900;
 const MAX_EDITOR_WIDTH = 1800;
 const DEFAULT_EDITOR_WIDTH = 1240;
@@ -68,6 +71,52 @@ const DEFAULT_EDITOR_FONT_FAMILY = "Sitka Text";
 const FONT_PAGE_SIZE = 8;
 
 type EditorWidthMode = "bounded" | "full";
+type HeaderThemeMode = "none" | "level" | "fade" | "manual";
+
+const HEADER_LEVELS = ["h1", "h2", "h3", "h4", "h5", "h6"] as const;
+type HeaderLevel = (typeof HEADER_LEVELS)[number];
+type HeaderColorMap = Record<HeaderLevel, string>;
+
+const HEADER_THEME_MODES: HeaderThemeMode[] = [
+  "none",
+  "level",
+  "fade",
+  "manual",
+];
+
+const HEADER_THEME_LABELS: Record<HeaderThemeMode, string> = {
+  none: "None",
+  level: "Level colors",
+  fade: "Soft fade",
+  manual: "Manual",
+};
+
+const TRANSPARENT_HEADER_COLORS: HeaderColorMap = {
+  h1: "transparent",
+  h2: "transparent",
+  h3: "transparent",
+  h4: "transparent",
+  h5: "transparent",
+  h6: "transparent",
+};
+
+const LEVEL_HEADER_COLORS: HeaderColorMap = {
+  h1: "#fee2e2",
+  h2: "#ffedd5",
+  h3: "#fef9c3",
+  h4: "#dcfce7",
+  h5: "#dbeafe",
+  h6: "#ede9fe",
+};
+
+const FADE_HEADER_COLORS: HeaderColorMap = {
+  h1: "#bfdbfe",
+  h2: "#dbeafe",
+  h3: "#e0f2fe",
+  h4: "#ecfeff",
+  h5: "#f0f9ff",
+  h6: "#f8fbff",
+};
 
 const fallbackEditorFonts = [
   "Sitka Text",
@@ -130,6 +179,14 @@ function App() {
     readStoredEditorFontFamily,
   );
   const [toolbarVisible, setToolbarVisible] = useState(readStoredToolbarVisible);
+  const [headerThemeMode, setHeaderThemeMode] = useState<HeaderThemeMode>(
+    readStoredHeaderThemeMode,
+  );
+  const [manualHeaderColors, setManualHeaderColors] = useState(
+    readStoredManualHeaderColors,
+  );
+  const [manualHeaderColorInputs, setManualHeaderColorInputs] =
+    useState<HeaderColorMap>(() => manualHeaderColors);
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
   const [systemFontsLoaded, setSystemFontsLoaded] = useState(false);
   const [fontLoading, setFontLoading] = useState(false);
@@ -225,11 +282,28 @@ function App() {
   const editorContentPadding = editorWidthMode === "full" ? "18px" : "44px";
   const editorBaseFontSize = `${clampEditorFontSize(editorFontSize)}px`;
   const editorFontFamilyCss = toCssFontFamily(editorFontFamily);
+  const activeHeaderColors = resolveHeaderThemeColors(
+    headerThemeMode,
+    manualHeaderColors,
+  );
+  const headerThemeUsesChrome = headerThemeMode !== "none";
+  const headerHeadingPaddingX = headerThemeUsesChrome ? "10px" : "0px";
+  const headerHeadingPaddingY = headerThemeUsesChrome ? "5px" : "0px";
+  const headerHeadingRadius = headerThemeUsesChrome ? "8px" : "0px";
   const editorPaneStyle = {
     "--editor-content-width": editorContentWidth,
     "--editor-content-padding": editorContentPadding,
     "--editor-font-size": editorBaseFontSize,
     "--editor-font-family": editorFontFamilyCss,
+    "--editor-heading-bg-h1": activeHeaderColors.h1,
+    "--editor-heading-bg-h2": activeHeaderColors.h2,
+    "--editor-heading-bg-h3": activeHeaderColors.h3,
+    "--editor-heading-bg-h4": activeHeaderColors.h4,
+    "--editor-heading-bg-h5": activeHeaderColors.h5,
+    "--editor-heading-bg-h6": activeHeaderColors.h6,
+    "--editor-heading-padding-x": headerHeadingPaddingX,
+    "--editor-heading-padding-y": headerHeadingPaddingY,
+    "--editor-heading-radius": headerHeadingRadius,
   } as CSSProperties;
 
   useEffect(() => {
@@ -238,11 +312,29 @@ function App() {
     root.style.setProperty("--editor-content-padding", editorContentPadding);
     root.style.setProperty("--editor-font-size", editorBaseFontSize);
     root.style.setProperty("--editor-font-family", editorFontFamilyCss);
+    root.style.setProperty("--editor-heading-bg-h1", activeHeaderColors.h1);
+    root.style.setProperty("--editor-heading-bg-h2", activeHeaderColors.h2);
+    root.style.setProperty("--editor-heading-bg-h3", activeHeaderColors.h3);
+    root.style.setProperty("--editor-heading-bg-h4", activeHeaderColors.h4);
+    root.style.setProperty("--editor-heading-bg-h5", activeHeaderColors.h5);
+    root.style.setProperty("--editor-heading-bg-h6", activeHeaderColors.h6);
+    root.style.setProperty("--editor-heading-padding-x", headerHeadingPaddingX);
+    root.style.setProperty("--editor-heading-padding-y", headerHeadingPaddingY);
+    root.style.setProperty("--editor-heading-radius", headerHeadingRadius);
   }, [
+    activeHeaderColors.h1,
+    activeHeaderColors.h2,
+    activeHeaderColors.h3,
+    activeHeaderColors.h4,
+    activeHeaderColors.h5,
+    activeHeaderColors.h6,
     editorBaseFontSize,
     editorContentPadding,
     editorContentWidth,
     editorFontFamilyCss,
+    headerHeadingPaddingX,
+    headerHeadingPaddingY,
+    headerHeadingRadius,
   ]);
 
   useEffect(() => {
@@ -280,6 +372,17 @@ function App() {
       toolbarVisible ? "true" : "false",
     );
   }, [toolbarVisible]);
+
+  useEffect(() => {
+    window.localStorage.setItem(HEADER_THEME_MODE_STORAGE_KEY, headerThemeMode);
+  }, [headerThemeMode]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      HEADER_MANUAL_COLORS_STORAGE_KEY,
+      JSON.stringify(manualHeaderColors),
+    );
+  }, [manualHeaderColors]);
 
   async function loadSystemFonts() {
     if (systemFontsLoaded || fontLoading) {
@@ -1381,6 +1484,74 @@ function App() {
     setEditorFontFamily(DEFAULT_EDITOR_FONT_FAMILY);
   }
 
+  function selectHeaderThemeMode(mode: HeaderThemeMode) {
+    setHeaderThemeMode(mode);
+  }
+
+  function handleManualHeaderColorTextChange(
+    level: HeaderLevel,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const nextInput = event.currentTarget.value;
+    const normalizedColor = normalizeHexColor(nextInput);
+
+    setManualHeaderColorInputs((currentColors) => ({
+      ...currentColors,
+      [level]: nextInput,
+    }));
+
+    if (!normalizedColor) {
+      return;
+    }
+
+    setManualHeaderColors((currentColors) => ({
+      ...currentColors,
+      [level]: normalizedColor,
+    }));
+  }
+
+  function handleManualHeaderColorInputBlur(level: HeaderLevel) {
+    const normalizedColor = normalizeHexColor(manualHeaderColorInputs[level]);
+    if (!normalizedColor) {
+      return;
+    }
+
+    setManualHeaderColorInputs((currentColors) => ({
+      ...currentColors,
+      [level]: normalizedColor,
+    }));
+  }
+
+  function handleManualHeaderColorPickerChange(
+    level: HeaderLevel,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const normalizedColor = normalizeHexColor(event.currentTarget.value);
+    if (!normalizedColor) {
+      return;
+    }
+
+    setManualHeaderColors((currentColors) => ({
+      ...currentColors,
+      [level]: normalizedColor,
+    }));
+    setManualHeaderColorInputs((currentColors) => ({
+      ...currentColors,
+      [level]: normalizedColor,
+    }));
+  }
+
+  function resetManualHeaderColors() {
+    const resetColors = { ...LEVEL_HEADER_COLORS };
+    setManualHeaderColors(resetColors);
+    setManualHeaderColorInputs(resetColors);
+  }
+
+  function resetHeaderTheme() {
+    setHeaderThemeMode("none");
+    resetManualHeaderColors();
+  }
+
   const dragCopyText =
     dragState.acceptedKind === "folder"
       ? "Drop the folder to open it as a workspace."
@@ -1658,6 +1829,101 @@ function App() {
                     Font reset
                   </button>
                 </div>
+                <section className="header-theme-panel" aria-label="Header backgrounds">
+                  <div className="header-theme-panel__header">
+                    <div>
+                      <span>Header backgrounds</span>
+                      <strong>{HEADER_THEME_LABELS[headerThemeMode]}</strong>
+                    </div>
+                    <button type="button" onClick={resetHeaderTheme}>
+                      Reset
+                    </button>
+                  </div>
+                  <div className="header-theme-options" role="group">
+                    {HEADER_THEME_MODES.map((mode) => {
+                      const previewColors = resolveHeaderThemeColors(
+                        mode,
+                        manualHeaderColors,
+                      );
+
+                      return (
+                        <button
+                          key={mode}
+                          type="button"
+                          className={`header-theme-choice ${
+                            headerThemeMode === mode ? "is-active" : ""
+                          }`}
+                          aria-pressed={headerThemeMode === mode}
+                          onClick={() => selectHeaderThemeMode(mode)}
+                        >
+                          <span>{HEADER_THEME_LABELS[mode]}</span>
+                          <span className="header-theme-swatch-row" aria-hidden="true">
+                            {HEADER_LEVELS.map((level) => (
+                              <span
+                                key={level}
+                                className={
+                                  previewColors[level] === "transparent"
+                                    ? "header-theme-swatch header-theme-swatch--empty"
+                                    : "header-theme-swatch"
+                                }
+                                style={{ backgroundColor: previewColors[level] }}
+                              />
+                            ))}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {headerThemeMode === "manual" ? (
+                    <div className="manual-header-colors">
+                      <div className="manual-header-colors__grid">
+                        {HEADER_LEVELS.map((level, index) => {
+                          const inputValue = manualHeaderColorInputs[level];
+                          const validColor = normalizeHexColor(inputValue);
+                          const invalid = !validColor;
+
+                          return (
+                            <label
+                              key={level}
+                              className={`manual-header-color ${
+                                invalid ? "is-invalid" : ""
+                              }`}
+                            >
+                              <span className="manual-header-color__label">
+                                H{index + 1}
+                              </span>
+                              <input
+                                type="color"
+                                value={manualHeaderColors[level]}
+                                onChange={(event) =>
+                                  handleManualHeaderColorPickerChange(level, event)
+                                }
+                                aria-label={`Pick H${index + 1} header background`}
+                              />
+                              <input
+                                type="text"
+                                value={inputValue}
+                                onChange={(event) =>
+                                  handleManualHeaderColorTextChange(level, event)
+                                }
+                                onBlur={() => handleManualHeaderColorInputBlur(level)}
+                                aria-invalid={invalid}
+                                aria-label={`H${index + 1} header hex color`}
+                                spellCheck={false}
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="manual-header-colors__footer">
+                        <span>Use #RGB or #RRGGBB.</span>
+                        <button type="button" onClick={resetManualHeaderColors}>
+                          Manual reset
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </section>
                 <div className="app-actions settings-panel__actions">
                   <button type="button" onClick={() => void openFilesFromPicker()}>
                     Open File
@@ -1959,6 +2225,93 @@ function filterFontChoices(fontChoices: string[], query: string) {
 function toCssFontFamily(fontFamily: string) {
   const escapedFamily = fontFamily.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   return `"${escapedFamily}", "Malgun Gothic", "Segoe UI", sans-serif`;
+}
+
+function resolveHeaderThemeColors(
+  mode: HeaderThemeMode,
+  manualColors: HeaderColorMap,
+): HeaderColorMap {
+  if (mode === "manual") {
+    return manualColors;
+  }
+
+  if (mode === "level") {
+    return LEVEL_HEADER_COLORS;
+  }
+
+  if (mode === "fade") {
+    return FADE_HEADER_COLORS;
+  }
+
+  return TRANSPARENT_HEADER_COLORS;
+}
+
+function normalizeHexColor(value: string) {
+  const match = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+
+  const hex = match[1].toLowerCase();
+  if (hex.length === 3) {
+    return `#${hex
+      .split("")
+      .map((character) => `${character}${character}`)
+      .join("")}`;
+  }
+
+  return `#${hex}`;
+}
+
+function coerceHeaderThemeMode(value: string | null): HeaderThemeMode {
+  return HEADER_THEME_MODES.includes(value as HeaderThemeMode)
+    ? (value as HeaderThemeMode)
+    : "none";
+}
+
+function readStoredHeaderThemeMode(): HeaderThemeMode {
+  if (typeof window === "undefined") {
+    return "none";
+  }
+
+  return coerceHeaderThemeMode(
+    window.localStorage.getItem(HEADER_THEME_MODE_STORAGE_KEY),
+  );
+}
+
+function readStoredManualHeaderColors(): HeaderColorMap {
+  if (typeof window === "undefined") {
+    return { ...LEVEL_HEADER_COLORS };
+  }
+
+  const colors: HeaderColorMap = { ...LEVEL_HEADER_COLORS };
+  const stored = window.localStorage.getItem(HEADER_MANUAL_COLORS_STORAGE_KEY);
+  if (!stored) {
+    return colors;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return colors;
+    }
+
+    const colorRecord = parsed as Record<string, unknown>;
+    HEADER_LEVELS.forEach((level) => {
+      const normalizedColor =
+        typeof colorRecord[level] === "string"
+          ? normalizeHexColor(colorRecord[level])
+          : null;
+
+      if (normalizedColor) {
+        colors[level] = normalizedColor;
+      }
+    });
+  } catch {
+    return colors;
+  }
+
+  return colors;
 }
 
 function readStoredEditorWidth() {
