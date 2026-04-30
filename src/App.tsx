@@ -56,6 +56,7 @@ type LineJump = {
 const EDITOR_WIDTH_STORAGE_KEY = "x-markdown-editor.editor-width";
 const EDITOR_WIDTH_MODE_STORAGE_KEY = "x-markdown-editor.editor-width-mode";
 const EDITOR_FONT_SIZE_STORAGE_KEY = "x-markdown-editor.editor-font-size";
+const EDITOR_LINE_HEIGHT_STORAGE_KEY = "x-markdown-editor.editor-line-height";
 const EDITOR_FONT_FAMILY_STORAGE_KEY = "x-markdown-editor.editor-font-family";
 const EDITOR_TOOLBAR_VISIBLE_STORAGE_KEY = "x-markdown-editor.toolbar-visible";
 const HEADER_THEME_MODE_STORAGE_KEY = "x-markdown-editor.header-theme-mode";
@@ -67,6 +68,9 @@ const DEFAULT_EDITOR_WIDTH = 1240;
 const DEFAULT_EDITOR_FONT_SIZE = 16;
 const MIN_EDITOR_FONT_SIZE = DEFAULT_EDITOR_FONT_SIZE - 10;
 const MAX_EDITOR_FONT_SIZE = DEFAULT_EDITOR_FONT_SIZE + 10;
+const DEFAULT_EDITOR_LINE_HEIGHT = 1.6;
+const MIN_EDITOR_LINE_HEIGHT = 1.0;
+const MAX_EDITOR_LINE_HEIGHT = 2.4;
 const DEFAULT_EDITOR_FONT_FAMILY = "Sitka Text";
 const FONT_PAGE_SIZE = 8;
 
@@ -175,6 +179,9 @@ function App() {
   );
   const [editorWidth, setEditorWidth] = useState(readStoredEditorWidth);
   const [editorFontSize, setEditorFontSize] = useState(readStoredEditorFontSize);
+  const [editorLineHeight, setEditorLineHeight] = useState(
+    readStoredEditorLineHeight,
+  );
   const [editorFontFamily, setEditorFontFamily] = useState(
     readStoredEditorFontFamily,
   );
@@ -236,6 +243,7 @@ function App() {
   const activeWidthLabel =
     editorWidthMode === "full" ? "Fit window" : `${editorWidth}px`;
   const activeTextSizeLabel = formatEditorTextScale(editorFontSize);
+  const activeLineHeightLabel = formatEditorLineHeight(editorLineHeight);
   const activeFontLabel = editorFontFamily;
   const fontChoices = useMemo(
     () => buildFontChoices(systemFonts, editorFontFamily),
@@ -281,6 +289,7 @@ function App() {
       : `${clampEditorWidth(editorWidth)}px`;
   const editorContentPadding = editorWidthMode === "full" ? "18px" : "44px";
   const editorBaseFontSize = `${clampEditorFontSize(editorFontSize)}px`;
+  const editorLineHeightCss = formatLineHeightCssValue(editorLineHeight);
   const editorFontFamilyCss = toCssFontFamily(editorFontFamily);
   const activeHeaderColors = resolveHeaderThemeColors(
     headerThemeMode,
@@ -294,6 +303,7 @@ function App() {
     "--editor-content-width": editorContentWidth,
     "--editor-content-padding": editorContentPadding,
     "--editor-font-size": editorBaseFontSize,
+    "--editor-line-height": editorLineHeightCss,
     "--editor-font-family": editorFontFamilyCss,
     "--editor-heading-bg-h1": activeHeaderColors.h1,
     "--editor-heading-bg-h2": activeHeaderColors.h2,
@@ -311,6 +321,7 @@ function App() {
     root.style.setProperty("--editor-content-width", editorContentWidth);
     root.style.setProperty("--editor-content-padding", editorContentPadding);
     root.style.setProperty("--editor-font-size", editorBaseFontSize);
+    root.style.setProperty("--editor-line-height", editorLineHeightCss);
     root.style.setProperty("--editor-font-family", editorFontFamilyCss);
     root.style.setProperty("--editor-heading-bg-h1", activeHeaderColors.h1);
     root.style.setProperty("--editor-heading-bg-h2", activeHeaderColors.h2);
@@ -331,6 +342,7 @@ function App() {
     editorBaseFontSize,
     editorContentPadding,
     editorContentWidth,
+    editorLineHeightCss,
     editorFontFamilyCss,
     headerHeadingPaddingX,
     headerHeadingPaddingY,
@@ -358,6 +370,13 @@ function App() {
       String(clampEditorFontSize(editorFontSize)),
     );
   }, [editorFontSize]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      EDITOR_LINE_HEIGHT_STORAGE_KEY,
+      formatLineHeightCssValue(editorLineHeight),
+    );
+  }, [editorLineHeight]);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -1467,6 +1486,10 @@ function App() {
     setEditorFontSize(clampEditorFontSize(Number(event.currentTarget.value)));
   }
 
+  function handleEditorLineHeightChange(event: ChangeEvent<HTMLInputElement>) {
+    setEditorLineHeight(clampEditorLineHeight(Number(event.currentTarget.value)));
+  }
+
   function handleFontSearchChange(event: ChangeEvent<HTMLInputElement>) {
     setFontQuery(event.currentTarget.value);
     setFontPage(0);
@@ -1478,6 +1501,10 @@ function App() {
 
   function resetEditorFontSize() {
     setEditorFontSize(DEFAULT_EDITOR_FONT_SIZE);
+  }
+
+  function resetEditorLineHeight() {
+    setEditorLineHeight(DEFAULT_EDITOR_LINE_HEIGHT);
   }
 
   function resetEditorFontFamily() {
@@ -1787,8 +1814,10 @@ function App() {
                       value={editorWidth}
                       onChange={handleEditorWidthChange}
                       aria-label="Adjust editor page width"
+                      aria-valuetext={
+                        editorWidthMode === "full" ? "Window" : `${editorWidth}px`
+                      }
                     />
-                    <strong>{editorWidthMode === "full" ? "Window" : `${editorWidth}px`}</strong>
                   </label>
                   <label className="font-slider">
                     <span>Text scale</span>
@@ -1800,8 +1829,21 @@ function App() {
                       value={editorFontSize}
                       onChange={handleEditorFontSizeChange}
                       aria-label="Adjust editor text scale"
+                      aria-valuetext={activeTextSizeLabel}
                     />
-                    <strong>{activeTextSizeLabel}</strong>
+                  </label>
+                  <label className="line-height-slider">
+                    <span>Line spacing</span>
+                    <input
+                      type="range"
+                      min={MIN_EDITOR_LINE_HEIGHT}
+                      max={MAX_EDITOR_LINE_HEIGHT}
+                      step={0.05}
+                      value={editorLineHeight}
+                      onChange={handleEditorLineHeightChange}
+                      aria-label="Adjust editor line spacing"
+                      aria-valuetext={activeLineHeightLabel}
+                    />
                   </label>
                 </div>
                 <div className="view-options" aria-label="Editor controls">
@@ -1824,6 +1866,9 @@ function App() {
                   </button>
                   <button type="button" onClick={resetEditorFontSize}>
                     Text reset
+                  </button>
+                  <button type="button" onClick={resetEditorLineHeight}>
+                    Spacing reset
                   </button>
                   <button type="button" onClick={resetEditorFontFamily}>
                     Font reset
@@ -2068,6 +2113,7 @@ function App() {
           <span>{statusMessage}</span>
           <span>Width: {activeWidthLabel}</span>
           <span>Text: {activeTextSizeLabel}</span>
+          <span>Spacing: {activeLineHeightLabel}</span>
           <span>Font: {activeFontLabel}</span>
           <span>
             {sidebarState.open
@@ -2172,6 +2218,17 @@ function clampEditorFontSize(value: number) {
   return Math.min(MAX_EDITOR_FONT_SIZE, Math.max(MIN_EDITOR_FONT_SIZE, value));
 }
 
+function clampEditorLineHeight(value: number) {
+  if (Number.isNaN(value)) {
+    return DEFAULT_EDITOR_LINE_HEIGHT;
+  }
+
+  return Math.min(
+    MAX_EDITOR_LINE_HEIGHT,
+    Math.max(MIN_EDITOR_LINE_HEIGHT, value),
+  );
+}
+
 function formatEditorTextScale(value: number) {
   const offset = clampEditorFontSize(value) - DEFAULT_EDITOR_FONT_SIZE;
 
@@ -2180,6 +2237,19 @@ function formatEditorTextScale(value: number) {
   }
 
   return `${offset > 0 ? "+" : ""}${offset}px`;
+}
+
+function formatLineHeightCssValue(value: number) {
+  return clampEditorLineHeight(value).toFixed(2);
+}
+
+function formatEditorLineHeight(value: number) {
+  const lineHeight = clampEditorLineHeight(value);
+  if (Math.abs(lineHeight - DEFAULT_EDITOR_LINE_HEIGHT) < 0.001) {
+    return "Standard";
+  }
+
+  return `${lineHeight.toFixed(2)}x`;
 }
 
 function coerceEditorFontFamily(value: string) {
@@ -2348,6 +2418,19 @@ function readStoredEditorFontSize() {
   }
 
   return clampEditorFontSize(stored);
+}
+
+function readStoredEditorLineHeight() {
+  if (typeof window === "undefined") {
+    return DEFAULT_EDITOR_LINE_HEIGHT;
+  }
+
+  const stored = Number(window.localStorage.getItem(EDITOR_LINE_HEIGHT_STORAGE_KEY));
+  if (Number.isNaN(stored)) {
+    return DEFAULT_EDITOR_LINE_HEIGHT;
+  }
+
+  return clampEditorLineHeight(stored);
 }
 
 function readStoredEditorFontFamily() {

@@ -23,6 +23,7 @@
   --editor-ir-block-padding: 22px;
   --editor-sv-block-padding: 12px;
   --editor-font-size: 16px;
+  --editor-line-height: 1.60;
   --editor-font-family: "Sitka Text", "Georgia", "Noto Serif KR", serif;
   --editor-heading-bg-h1: transparent;
   --editor-heading-bg-h2: transparent;
@@ -472,6 +473,7 @@ button {
   --editor-content-block-padding: 30px;
   --editor-ir-block-padding: 22px;
   --editor-sv-block-padding: 12px;
+  --editor-line-height: 1.60;
   --editor-heading-bg-h1: transparent;
   --editor-heading-bg-h2: transparent;
   --editor-heading-bg-h3: transparent;
@@ -511,7 +513,7 @@ button {
 
 .settings-panel__grid {
   display: grid;
-  grid-template-columns: minmax(520px, 0.9fr) minmax(520px, 1.1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
   gap: 18px 24px;
   align-items: start;
 }
@@ -529,14 +531,15 @@ button {
 
 .settings-panel__sliders {
   display: grid;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   width: 100%;
   max-width: 980px;
 }
 
 .settings-panel__sliders .width-slider,
-.settings-panel__sliders .font-slider {
+.settings-panel__sliders .font-slider,
+.settings-panel__sliders .line-height-slider {
   width: 100%;
   min-width: 0;
 }
@@ -824,11 +827,12 @@ button {
 }
 
 .width-slider,
-.font-slider {
+.font-slider,
+.line-height-slider {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-width: min(360px, 100%);
+  gap: 12px;
+  min-width: 0;
   padding: 6px 12px;
   border: 1px solid rgba(216, 224, 234, 0.94);
   border-radius: 999px;
@@ -837,25 +841,20 @@ button {
 
 .width-slider span,
 .font-slider span,
+.line-height-slider span,
 .font-search span {
+  flex: 0 0 auto;
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
 }
 
-.width-slider strong,
-.font-slider strong {
-  min-width: 64px;
-  color: var(--text);
-  font-size: 12px;
-  text-align: right;
-}
-
 .width-slider input[type="range"],
-.font-slider input[type="range"] {
+.font-slider input[type="range"],
+.line-height-slider input[type="range"] {
   flex: 1;
-  min-width: 120px;
+  min-width: 0;
   accent-color: var(--accent);
 }
 
@@ -1393,7 +1392,7 @@ button {
   color: var(--text);
   font-family: var(--editor-font-family);
   font-size: var(--editor-font-size);
-  line-height: 1.6;
+  line-height: var(--editor-line-height);
   white-space: break-spaces;
   overflow-anchor: none;
 }
@@ -1409,7 +1408,7 @@ button {
   .editor-instance .milkdown .ProseMirror th,
 .editor-instance .milkdown .ProseMirror td {
   font-size: 1em;
-  line-height: 1.6;
+  line-height: var(--editor-line-height);
 }
 
 .editor-instance .milkdown .ProseMirror p {
@@ -1567,7 +1566,7 @@ button {
   display: block;
   width: 100%;
   font-size: var(--editor-font-size);
-  line-height: 1.6;
+  line-height: var(--editor-line-height);
   margin: 0;
 }
 
@@ -1619,7 +1618,7 @@ button {
   caret-color: #1d4ed8;
   font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
   font-size: 0.92em;
-  line-height: 1.6;
+  line-height: var(--editor-line-height);
   outline: none;
 }
 
@@ -1833,13 +1832,8 @@ button {
     width: 100%;
   }
 
-  .settings-panel__grid {
-    grid-template-columns: 1fr;
-  }
-
   .settings-panel__controls {
     width: 100%;
-    max-width: 980px;
   }
 
   .settings-panel__font {
@@ -1869,6 +1863,7 @@ button {
   }
 
   .font-slider,
+  .line-height-slider,
   .font-browser {
     flex: 1;
   }
@@ -1933,6 +1928,10 @@ button {
     max-width: none;
   }
 
+  .settings-panel__grid {
+    grid-template-columns: 1fr;
+  }
+
   .settings-panel .view-options,
   .settings-panel__actions {
     width: 100%;
@@ -1953,6 +1952,7 @@ button {
 
   .width-slider,
   .font-slider,
+  .line-height-slider,
   .font-browser {
     min-width: 100%;
   }
