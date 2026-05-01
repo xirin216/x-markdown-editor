@@ -4,6 +4,7 @@ A Korean version of this document is available in [README.ko.md](README.ko.md).
 
 ## Features
 * Open `.md` and `.markdown` files directly from disk.
+* Start a new unsaved Markdown file and choose its location on first save.
 * Register as a Windows file association target for Markdown files.
 * Open a workspace folder and search Markdown files recursively.
 * Use a collapsible left panel for Search and Outline navigation.

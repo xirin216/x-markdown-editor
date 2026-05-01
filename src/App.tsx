@@ -11,7 +11,7 @@ import {
 } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { confirm, message, open } from "@tauri-apps/plugin-dialog";
+import { confirm, message, open, save } from "@tauri-apps/plugin-dialog";
 import {
   WATCH_EVENT_NAME,
   classifyDropPaths,
@@ -62,6 +62,7 @@ const EDITOR_TOOLBAR_VISIBLE_STORAGE_KEY = "x-markdown-editor.toolbar-visible";
 const HEADER_THEME_MODE_STORAGE_KEY = "x-markdown-editor.header-theme-mode";
 const HEADER_MANUAL_COLORS_STORAGE_KEY =
   "x-markdown-editor.header-manual-colors";
+const UNTITLED_PATH_PREFIX = "untitled:";
 const MIN_EDITOR_WIDTH = 900;
 const MAX_EDITOR_WIDTH = 1800;
 const DEFAULT_EDITOR_WIDTH = 1240;
@@ -216,17 +217,23 @@ function App() {
     ) ?? null;
   const deferredActiveContent = useDeferredValue(activeTab?.content ?? "");
   const tabPathKey = tabs
+    .filter((tab) => !tab.untitled)
     .map((tab) => normalizePathForKey(tab.path))
     .sort()
     .join("|");
   const watchPaths = [
     ...(workspace ? [workspace.rootPath] : []),
     ...tabs
-      .filter((tab) => !isInsideWorkspace(tab.path, workspace?.rootPath ?? null))
+      .filter(
+        (tab) =>
+          !tab.untitled && !isInsideWorkspace(tab.path, workspace?.rootPath ?? null),
+      )
       .map((tab) => tab.path),
   ];
   const activeLocationLabel = activeTab
-    ? normalizeDisplayPath(activeTab.path)
+    ? activeTab.untitled
+      ? activeTab.title
+      : normalizeDisplayPath(activeTab.path)
     : workspace
       ? normalizeDisplayPath(workspace.rootPath)
       : "No file open";
@@ -236,7 +243,9 @@ function App() {
       : "Saved"
     : "Hybrid markdown editor";
   const topbarLocationLabel = activeTab
-    ? normalizeDisplayPath(activeTab.path)
+    ? activeTab.untitled
+      ? activeTab.title
+      : normalizeDisplayPath(activeTab.path)
     : workspace
       ? `Workspace: ${normalizeDisplayPath(workspace.rootPath)}`
       : "Open a file to begin editing.";
@@ -613,6 +622,12 @@ function App() {
 
       const key = event.key.toLowerCase();
 
+      if (key === "n") {
+        event.preventDefault();
+        createNewDocument();
+        return;
+      }
+
       if (key === "s") {
         event.preventDefault();
         void saveActiveDocument();
@@ -644,12 +659,12 @@ function App() {
     setTabs((currentTabs) =>
       currentTabs.map((tab) =>
         normalizePathForKey(tab.path) === normalizePathForKey(currentPath)
-          ? {
-              ...tab,
-              content: nextContent,
-              dirty: nextContent !== tab.savedContent,
-              syncState: tab.syncState === "deleted" ? "deleted" : tab.syncState,
-            }
+            ? {
+                ...tab,
+                content: nextContent,
+                dirty: tab.untitled ? true : nextContent !== tab.savedContent,
+                syncState: tab.syncState === "deleted" ? "deleted" : tab.syncState,
+              }
           : tab,
       ),
     );
@@ -691,6 +706,7 @@ function App() {
       content: file.content,
       savedContent: file.content,
       dirty: false,
+      untitled: false,
       inWorkspace: isInsideWorkspace(file.path, workspaceRef.current?.rootPath ?? null),
       lastSavedAt: file.modifiedAt,
       syncState: "clean",
@@ -755,7 +771,8 @@ function App() {
       setTabs((currentTabs) =>
         currentTabs.map((tab) => ({
           ...tab,
-          inWorkspace: isInsideWorkspace(tab.path, nextWorkspace.rootPath),
+          inWorkspace:
+            !tab.untitled && isInsideWorkspace(tab.path, nextWorkspace.rootPath),
         })),
       );
 
@@ -771,6 +788,27 @@ function App() {
     } finally {
       setTreeLoading(false);
     }
+  }
+
+  function createNewDocument() {
+    const title = createUntitledTitle(tabsRef.current);
+    const path = `${UNTITLED_PATH_PREFIX}${Date.now()}:${tabsRef.current.length + 1}`;
+    const tab: DocumentTab = {
+      path,
+      title,
+      content: "",
+      savedContent: "",
+      dirty: true,
+      untitled: true,
+      inWorkspace: false,
+      lastSavedAt: null,
+      syncState: "clean",
+    };
+
+    setTabs((currentTabs) => [...currentTabs, tab]);
+    setActivePath(path);
+    setSelectedTreePath(null);
+    setStatusMessage(`Started ${title}.`);
   }
 
   async function openFilesFromPicker() {
@@ -858,14 +896,49 @@ function App() {
       return;
     }
 
-    if (!activeTab.dirty) {
+    if (!activeTab.untitled && !activeTab.dirty) {
       setStatusMessage(`No changes to save for ${activeTab.title}.`);
       return;
     }
 
     try {
+      let targetPath = activeTab.path;
+      if (activeTab.untitled) {
+        const pickedPath = await save({
+          title: "Save Markdown File",
+          defaultPath: activeTab.title,
+          filters: [
+            {
+              name: "Markdown",
+              extensions: ["md", "markdown"],
+            },
+          ],
+        });
+
+        if (!pickedPath) {
+          return;
+        }
+
+        targetPath = addMarkdownExtensionIfMissing(pickedPath);
+        const targetKey = normalizePathForKey(targetPath);
+        const alreadyOpenTab = tabsRef.current.find(
+          (tab) => !tab.untitled && normalizePathForKey(tab.path) === targetKey,
+        );
+        if (alreadyOpenTab) {
+          await message(
+            `${alreadyOpenTab.title} is already open. Choose another file name or close the existing tab first.`,
+            {
+              title: "File already open",
+              kind: "warning",
+            },
+          );
+          return;
+        }
+      }
+
       const content = normalizeObsidianMarkdown(activeTab.content);
-      const result = await saveFileCommand(activeTab.path, content);
+      const result = await saveFileCommand(targetPath, content);
+      const previousKey = normalizePathForKey(activeTab.path);
       const normalized = normalizePathForKey(result.path);
       ignoreWatchUntilRef.current[normalized] = Date.now() + 1500;
       void watchPathsCommand(watchPaths).catch((error) => {
@@ -873,19 +946,41 @@ function App() {
       });
       setTabs((currentTabs) =>
         currentTabs.map((tab) =>
-          normalizePathForKey(tab.path) === normalized
+          normalizePathForKey(tab.path) === previousKey
             ? {
                 ...tab,
+                path: result.path,
+                title: getFileName(result.path),
                 content,
                 savedContent: content,
                 dirty: false,
+                untitled: false,
+                inWorkspace: isInsideWorkspace(
+                  result.path,
+                  workspaceRef.current?.rootPath ?? null,
+                ),
                 lastSavedAt: result.modifiedAt,
                 syncState: "clean",
               }
             : tab,
         ),
       );
-      setStatusMessage(`Saved ${activeTab.title}.`);
+      if (normalizePathForKey(activePathRef.current ?? "") === previousKey) {
+        setActivePath(result.path);
+      }
+
+      const currentWorkspace = workspaceRef.current;
+      if (
+        activeTab.untitled &&
+        currentWorkspace &&
+        isInsideWorkspace(result.path, currentWorkspace.rootPath)
+      ) {
+        await reloadWorkspace(currentWorkspace.rootPath, { silent: true });
+        expandTreeAncestors(result.path, currentWorkspace.rootPath);
+        setSelectedTreePath(result.path);
+      }
+
+      setStatusMessage(`Saved ${getFileName(result.path)}.`);
     } catch (error) {
       await message(asErrorMessage(error), {
         title: "Save failed",
@@ -1745,7 +1840,7 @@ function App() {
                     key={tab.path}
                     type="button"
                     className={`tab ${activeTab?.path === tab.path ? "tab--active" : ""}`}
-                    title={tab.path}
+                    title={tab.untitled ? tab.title : tab.path}
                     onClick={() => setActivePath(tab.path)}
                   >
                     <span className="tab__title">{tab.title}</span>
@@ -1766,7 +1861,11 @@ function App() {
             </div>
             <div
               className="tabs__document-path"
-              title={activeTab?.path ?? workspace?.rootPath ?? topbarLocationLabel}
+              title={
+                activeTab?.untitled
+                  ? activeTab.title
+                  : activeTab?.path ?? workspace?.rootPath ?? topbarLocationLabel
+              }
             >
               {topbarLocationLabel}
             </div>
@@ -1775,6 +1874,14 @@ function App() {
             <div className="tabs__badges" aria-label="Active document status">
               <span className="meta-pill meta-pill--muted">{activeSaveStateLabel}</span>
             </div>
+            <button
+              type="button"
+              className="tabs__settings-button"
+              aria-label="Start a new markdown file"
+              onClick={createNewDocument}
+            >
+              New
+            </button>
             <button
               type="button"
               className={`tabs__settings-button ${toolbarVisible ? "is-active" : ""}`}
@@ -1970,6 +2077,9 @@ function App() {
                   ) : null}
                 </section>
                 <div className="app-actions settings-panel__actions">
+                  <button type="button" onClick={createNewDocument}>
+                    New File
+                  </button>
                   <button type="button" onClick={() => void openFilesFromPicker()}>
                     Open File
                   </button>
@@ -2081,6 +2191,9 @@ function App() {
                       drop a file directly onto the window.
                     </p>
                     <div className="app-actions">
+                      <button type="button" onClick={createNewDocument}>
+                        New File
+                      </button>
                       <button type="button" onClick={() => void openFilesFromPicker()}>
                         Open File
                       </button>
@@ -2189,6 +2302,30 @@ function joinPathForDisplay(parentPath: string, fileName: string) {
 
 function normalizeDisplayPath(path: string) {
   return path.replace(/\\/g, "/");
+}
+
+function createUntitledTitle(tabs: DocumentTab[]) {
+  const usedTitles = new Set(tabs.map((tab) => tab.title.toLowerCase()));
+  const defaultTitle = "untitled.md";
+  if (!usedTitles.has(defaultTitle)) {
+    return defaultTitle;
+  }
+
+  let index = 2;
+  while (usedTitles.has(`untitled-${index}.md`)) {
+    index += 1;
+  }
+
+  return `untitled-${index}.md`;
+}
+
+function addMarkdownExtensionIfMissing(path: string) {
+  const fileName = path.replace(/\\/g, "/").split("/").pop() ?? path;
+  if (/\.(md|markdown)$/i.test(fileName) || /\.[^./]+$/.test(fileName)) {
+    return path;
+  }
+
+  return `${path}.md`;
 }
 
 function resolveJumpNeedle(content: string, jump: LineJump) {

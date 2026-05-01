@@ -9,6 +9,7 @@ export interface DocumentTab {
   content: string;
   savedContent: string;
   dirty: boolean;
+  untitled: boolean;
   inWorkspace: boolean;
   lastSavedAt: number | null;
   syncState: TabSyncState;

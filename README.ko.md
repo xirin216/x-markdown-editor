@@ -7,6 +7,7 @@ X Markdown Editor는 디스크 어디에 있는 `.md`, `.markdown` 파일이든 
 ## 기능
 
 - 디스크의 `.md`, `.markdown` 파일을 직접 엽니다.
+- 저장 위치를 먼저 고르지 않고 새 Markdown 파일을 시작한 뒤 첫 저장 때 위치를 선택합니다.
 - Windows에서 Markdown 파일 연결 프로그램으로 등록할 수 있습니다.
 - 워크스페이스 폴더를 열고 Markdown 파일을 재귀적으로 검색합니다.
 - 접을 수 있는 왼쪽 패널에서 Search와 Outline을 사용합니다.
