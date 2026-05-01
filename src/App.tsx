@@ -8,6 +8,7 @@ import {
   type ChangeEvent,
   type CSSProperties,
   type DragEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -23,6 +24,7 @@ import {
   openFileCommand,
   openWorkspaceCommand,
   saveFileCommand,
+  searchWorkspaceCommand,
   startupFilePathsCommand,
   watchPathsCommand,
 } from "./commands";
@@ -38,6 +40,7 @@ import type {
   DocumentTab,
   DragState,
   HeadingItem,
+  SearchHit,
   SidebarState,
   WatchEventPayload,
   WorkspaceInfo,
@@ -77,6 +80,7 @@ const FONT_PAGE_SIZE = 8;
 
 type EditorWidthMode = "bounded" | "full";
 type HeaderThemeMode = "none" | "level" | "fade" | "manual";
+type TreeSearchMode = "files" | "content";
 
 const HEADER_LEVELS = ["h1", "h2", "h3", "h4", "h5", "h6"] as const;
 type HeaderLevel = (typeof HEADER_LEVELS)[number];
@@ -159,7 +163,14 @@ function App() {
     () => new Set(),
   );
   const [treeLoading, setTreeLoading] = useState(false);
-  const [treeNotice, setTreeNotice] = useState("Open a folder to browse files.");
+  const [treeNotice, setTreeNotice] = useState("");
+  const [treeSearchMode, setTreeSearchMode] = useState<TreeSearchMode>("files");
+  const [treeSearchQuery, setTreeSearchQuery] = useState("");
+  const [contentSearchResults, setContentSearchResults] = useState<SearchHit[]>([]);
+  const [contentSearchLoading, setContentSearchLoading] = useState(false);
+  const [contentSearchError, setContentSearchError] = useState("");
+  const [contentSearchSubmittedQuery, setContentSearchSubmittedQuery] =
+    useState("");
   const [selectedTreePath, setSelectedTreePath] = useState<string | null>(null);
   const [draggingTreeFilePath, setDraggingTreeFilePath] = useState<string | null>(
     null,
@@ -206,6 +217,7 @@ function App() {
   const workspaceRef = useRef(workspace);
   const activePathRef = useRef(activePath);
   const ignoreWatchUntilRef = useRef<Record<string, number>>({});
+  const contentSearchRequestRef = useRef(0);
 
   tabsRef.current = tabs;
   workspaceRef.current = workspace;
@@ -270,6 +282,20 @@ function App() {
   const pagedFontChoices = filteredFontChoices.slice(
     currentFontPage * FONT_PAGE_SIZE,
     currentFontPage * FONT_PAGE_SIZE + FONT_PAGE_SIZE,
+  );
+  const trimmedTreeSearchQuery = treeSearchQuery.trim();
+  const treeFileSearchActive =
+    treeSearchMode === "files" && trimmedTreeSearchQuery.length > 0;
+  const filteredWorkspaceTree = useMemo(
+    () =>
+      treeFileSearchActive
+        ? filterWorkspaceTreeNodes(
+            workspaceTree,
+            workspace?.rootPath ?? "",
+            trimmedTreeSearchQuery,
+          )
+        : workspaceTree,
+    [treeFileSearchActive, trimmedTreeSearchQuery, workspace?.rootPath, workspaceTree],
   );
   const selectedTreeNode = selectedTreePath
     ? findWorkspaceTreeNode(workspaceTree, selectedTreePath)
@@ -763,11 +789,12 @@ function App() {
       if (options?.resetExpanded) {
         setExpandedTreePaths(new Set());
       }
-      setTreeNotice(
-        nextTree.length > 0
-          ? `${nextWorkspace.markdownFileCount} markdown file${nextWorkspace.markdownFileCount === 1 ? "" : "s"} in this workspace.`
-          : "No markdown files found in this workspace.",
-      );
+      contentSearchRequestRef.current += 1;
+      setTreeNotice("");
+      setContentSearchResults([]);
+      setContentSearchLoading(false);
+      setContentSearchError("");
+      setContentSearchSubmittedQuery("");
       setTabs((currentTabs) =>
         currentTabs.map((tab) => ({
           ...tab,
@@ -1366,11 +1393,118 @@ function App() {
     }
   }
 
-  function renderWorkspaceTreeNodes(nodes: WorkspaceTreeNode[], depth = 0) {
+  function handleTreeSearchQueryChange(event: ChangeEvent<HTMLInputElement>) {
+    contentSearchRequestRef.current += 1;
+    setTreeSearchQuery(event.currentTarget.value);
+    setContentSearchResults([]);
+    setContentSearchLoading(false);
+    setContentSearchError("");
+    setContentSearchSubmittedQuery("");
+  }
+
+  function handleTreeSearchModeChange(mode: TreeSearchMode) {
+    contentSearchRequestRef.current += 1;
+    setTreeSearchMode(mode);
+    setContentSearchResults([]);
+    setContentSearchLoading(false);
+    setContentSearchError("");
+    setContentSearchSubmittedQuery("");
+  }
+
+  function handleTreeSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (treeSearchMode !== "content" || event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    void runTreeContentSearch();
+  }
+
+  async function runTreeContentSearch() {
+    const currentWorkspace = workspaceRef.current;
+    const query = treeSearchQuery.trim();
+
+    if (!query) {
+      contentSearchRequestRef.current += 1;
+      setContentSearchResults([]);
+      setContentSearchLoading(false);
+      setContentSearchError("");
+      setContentSearchSubmittedQuery("");
+      return;
+    }
+
+    if (!currentWorkspace) {
+      contentSearchRequestRef.current += 1;
+      setContentSearchResults([]);
+      setContentSearchLoading(false);
+      setContentSearchError("Open a folder before searching content.");
+      setContentSearchSubmittedQuery(query);
+      return;
+    }
+
+    const requestId = contentSearchRequestRef.current + 1;
+    contentSearchRequestRef.current = requestId;
+    setContentSearchLoading(true);
+    setContentSearchError("");
+    setContentSearchSubmittedQuery(query);
+
+    try {
+      const results = await searchWorkspaceCommand(currentWorkspace.rootPath, query);
+      if (contentSearchRequestRef.current !== requestId) {
+        return;
+      }
+
+      setContentSearchResults(results);
+    } catch (error) {
+      if (contentSearchRequestRef.current !== requestId) {
+        return;
+      }
+
+      setContentSearchResults([]);
+      setContentSearchError(asErrorMessage(error));
+    } finally {
+      if (contentSearchRequestRef.current === requestId) {
+        setContentSearchLoading(false);
+      }
+    }
+  }
+
+  async function handleContentSearchHitClick(hit: SearchHit) {
+    const currentWorkspace = workspaceRef.current;
+    try {
+      await loadMarkdownFile(hit.path, {
+        jump: {
+          path: hit.path,
+          line: hit.line,
+          column: hit.column,
+          needle:
+            contentSearchSubmittedQuery ||
+            treeSearchQuery.trim() ||
+            hit.preview,
+        },
+      });
+
+      if (currentWorkspace) {
+        expandTreeAncestors(hit.path, currentWorkspace.rootPath);
+      }
+    } catch (error) {
+      await message(asErrorMessage(error), {
+        title: "Open search result failed",
+        kind: "error",
+      });
+    }
+  }
+
+  function renderWorkspaceTreeNodes(
+    nodes: WorkspaceTreeNode[],
+    depth = 0,
+    forceExpanded = false,
+  ) {
     return nodes.map((node) => {
       const nodeKey = normalizePathForKey(node.path);
       const hasChildren = node.children.length > 0;
-      const expanded = node.kind === "folder" && expandedTreePaths.has(nodeKey);
+      const expanded =
+        node.kind === "folder" && (forceExpanded || expandedTreePaths.has(nodeKey));
       const dragging =
         node.kind === "file" &&
         draggingTreeFilePath !== null &&
@@ -1425,7 +1559,7 @@ function App() {
           </button>
           {node.kind === "folder" && expanded && hasChildren ? (
             <div className="tree-node__children">
-              {renderWorkspaceTreeNodes(node.children, depth + 1)}
+              {renderWorkspaceTreeNodes(node.children, depth + 1, forceExpanded)}
             </div>
           ) : null}
         </div>
@@ -1709,12 +1843,6 @@ function App() {
               </h1>
               <p>{sidebarLocationLabel}</p>
             </div>
-            {workspace ? (
-              <span className="meta-pill">
-                {workspace.markdownFileCount} file
-                {workspace.markdownFileCount === 1 ? "" : "s"}
-              </span>
-            ) : null}
           </div>
 
           {sidebarState.activePanel === "tree" ? (
@@ -1760,18 +1888,123 @@ function App() {
                   <span aria-hidden="true">↻</span>
                 </button>
               </div>
-              <p className="panel-note">{treeLoading ? "Loading tree..." : treeNotice}</p>
-              <div className="tree-list">
-                {!workspace ? (
-                  <div className="empty-panel">Open a folder to show the tree.</div>
-                ) : treeLoading && workspaceTree.length === 0 ? (
-                  <div className="empty-panel">Loading tree...</div>
-                ) : workspaceTree.length === 0 ? (
-                  <div className="empty-panel">No markdown files found.</div>
-                ) : (
-                  renderWorkspaceTreeNodes(workspaceTree)
-                )}
+              <div className="tree-search">
+                <input
+                  type="search"
+                  aria-label={
+                    treeSearchMode === "files" ? "Filter files" : "Search content"
+                  }
+                  placeholder={
+                    treeSearchMode === "files"
+                      ? "Filter files..."
+                      : "Search content..."
+                  }
+                  value={treeSearchQuery}
+                  onChange={handleTreeSearchQueryChange}
+                  onKeyDown={handleTreeSearchKeyDown}
+                  disabled={!workspace}
+                />
+                <div
+                  className={`tree-search__controls ${
+                    treeSearchMode === "content" ? "" : "tree-search__controls--solo"
+                  }`}
+                >
+                  <div className="tree-search__modes" aria-label="Tree search mode">
+                    <button
+                      type="button"
+                      className={`tree-search__mode ${
+                        treeSearchMode === "files" ? "is-active" : ""
+                      }`}
+                      aria-pressed={treeSearchMode === "files"}
+                      onClick={() => handleTreeSearchModeChange("files")}
+                    >
+                      Files
+                    </button>
+                    <button
+                      type="button"
+                      className={`tree-search__mode ${
+                        treeSearchMode === "content" ? "is-active" : ""
+                      }`}
+                      aria-pressed={treeSearchMode === "content"}
+                      onClick={() => handleTreeSearchModeChange("content")}
+                    >
+                      Content
+                    </button>
+                  </div>
+                  {treeSearchMode === "content" ? (
+                    <button
+                      type="button"
+                      className="tree-search__submit"
+                      onClick={() => void runTreeContentSearch()}
+                      disabled={
+                        !workspace ||
+                        contentSearchLoading ||
+                        trimmedTreeSearchQuery.length === 0
+                      }
+                    >
+                      Search
+                    </button>
+                  ) : null}
+                </div>
               </div>
+              {treeNotice ? (
+                <p className="panel-note panel-note--error">{treeNotice}</p>
+              ) : null}
+              {treeSearchMode === "content" ? (
+                <div className="search-results">
+                  {!workspace ? (
+                    <div className="empty-panel">Open a folder to search content.</div>
+                  ) : contentSearchLoading ? (
+                    <div className="empty-panel">Searching content...</div>
+                  ) : contentSearchError ? (
+                    <div className="empty-panel">{contentSearchError}</div>
+                  ) : !contentSearchSubmittedQuery ? (
+                    <div className="empty-panel">
+                      {trimmedTreeSearchQuery
+                        ? "Press Enter or Search to search content."
+                        : "Enter a term to search file contents."}
+                    </div>
+                  ) : contentSearchResults.length === 0 ? (
+                    <div className="empty-panel">No content matches found.</div>
+                  ) : (
+                    contentSearchResults.map((hit) => (
+                      <button
+                        key={`${hit.path}:${hit.line}:${hit.column}:${hit.preview}`}
+                        type="button"
+                        className="search-hit"
+                        title={hit.path}
+                        onClick={() => void handleContentSearchHitClick(hit)}
+                      >
+                        <span className="search-hit__path">
+                          {toRelativePath(hit.path, workspace?.rootPath ?? null)}
+                        </span>
+                        <span className="search-hit__preview">{hit.preview}</span>
+                        <span className="search-hit__meta">
+                          Line {hit.line}, column {hit.column}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div className="tree-list">
+                  {!workspace ? (
+                    <div className="empty-panel">Open a folder to show the tree.</div>
+                  ) : treeLoading && workspaceTree.length === 0 ? (
+                    <div className="empty-panel">Loading tree...</div>
+                  ) : workspaceTree.length === 0 ? (
+                    <div className="empty-panel">No markdown files found.</div>
+                  ) : treeFileSearchActive && filteredWorkspaceTree.length === 0 ? (
+                    <div className="empty-panel">No matching files.</div>
+                  ) : (
+                    renderWorkspaceTreeNodes(
+                      filteredWorkspaceTree,
+                      0,
+                      treeFileSearchActive,
+                    )
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div className="sidebar-panel__body">
@@ -2282,6 +2515,44 @@ function findWorkspaceTreeNode(
   }
 
   return null;
+}
+
+function filterWorkspaceTreeNodes(
+  nodes: WorkspaceTreeNode[],
+  rootPath: string,
+  query: string,
+) {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return nodes;
+  }
+
+  const filteredNodes: WorkspaceTreeNode[] = [];
+
+  nodes.forEach((node) => {
+    if (node.kind === "file") {
+      const relativePath = toRelativePath(node.path, rootPath);
+      const searchableText = `${node.name}\n${relativePath}`.toLowerCase();
+      if (searchableText.includes(normalizedQuery)) {
+        filteredNodes.push(node);
+      }
+      return;
+    }
+
+    const children = filterWorkspaceTreeNodes(
+      node.children,
+      rootPath,
+      normalizedQuery,
+    );
+    if (children.length > 0) {
+      filteredNodes.push({
+        ...node,
+        children,
+      });
+    }
+  });
+
+  return filteredNodes;
 }
 
 function getParentPath(path: string) {

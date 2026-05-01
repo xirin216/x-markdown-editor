@@ -6,8 +6,8 @@ A Korean version of this document is available in [README.ko.md](README.ko.md).
 * Open `.md` and `.markdown` files directly from disk.
 * Start a new unsaved Markdown file and choose its location on first save.
 * Register as a Windows file association target for Markdown files.
-* Open a workspace folder and search Markdown files recursively.
-* Use a collapsible left panel for Search and Outline navigation.
+* Open a workspace folder, browse its Markdown tree, and search file names or file contents.
+* Use a collapsible left panel for Tree and Outline navigation.
 * Edit Markdown with a Milkdown and Crepe based editor surface.
 * Toggle the formatting toolbar from the top bar.
 * Preview raw HTML blocks in Markdown while sanitizing rendered HTML.

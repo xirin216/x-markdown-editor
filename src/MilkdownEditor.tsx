@@ -532,6 +532,10 @@ function MilkdownEditorInner({
       return;
     }
 
+    if (shouldPreserveExternalTextFocus(hostRef.current)) {
+      return;
+    }
+
     const editor = get();
     if (!editor) {
       return;
@@ -1101,6 +1105,24 @@ function scrollEditorToTop(host: HTMLDivElement | null) {
 
 function getEditorScrollSurface(host: HTMLDivElement | null) {
   return host?.querySelector<HTMLElement>(".milkdown-surface") ?? null;
+}
+
+function shouldPreserveExternalTextFocus(host: HTMLDivElement | null) {
+  const activeElement = document.activeElement;
+  if (!activeElement || activeElement === document.body) {
+    return false;
+  }
+
+  if (host?.contains(activeElement)) {
+    return false;
+  }
+
+  return (
+    activeElement instanceof HTMLInputElement ||
+    activeElement instanceof HTMLTextAreaElement ||
+    activeElement instanceof HTMLSelectElement ||
+    (activeElement instanceof HTMLElement && activeElement.isContentEditable)
+  );
 }
 
 function MilkdownEditor(props: MilkdownEditorProps) {
