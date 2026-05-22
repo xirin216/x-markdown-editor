@@ -2224,3 +2224,129 @@ button {
     overflow-wrap: anywhere;
   }
 }
+
+/* ==========================================================================
+   🤖 머메이드 다이어그램 (Mermaid Diagram) 프리뷰 전용 스타일
+   ========================================================================== */
+
+/* 머메이드 프리뷰 전체를 감싸는 최상위 컨테이너 */
+.milkdown-mermaid-preview-container {
+  position: relative; /* 토글 버튼의 절대 배치를 위해 relative 설정 */
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background-color: var(--editor-soft);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.02);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+}
+
+.milkdown-mermaid-preview-container:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+}
+
+/* 프리뷰 내부 우측 상단의 유리모피즘(Glassmorphism) 스타일 토글 버튼 */
+.milkdown-mermaid-toggle-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  background-color: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+  opacity: 0; /* 평소에는 완벽한 미니멀을 위해 버튼을 숨김 */
+  transform: translateY(2px);
+  transition: 
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+/* 컨테이너에 마우스가 호버되거나 코드 편집 모드(show-code)일 때는 토글 버튼을 은은하게 노출 */
+.milkdown-mermaid-preview-container:hover .milkdown-mermaid-toggle-btn,
+.milkdown-mermaid-preview-container.show-code .milkdown-mermaid-toggle-btn {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 토글 버튼 호버 시 리액션 */
+.milkdown-mermaid-toggle-btn:hover {
+  border-color: #bdd0f7;
+  color: var(--accent-strong);
+  background-color: var(--accent-soft);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.1);
+}
+
+/* 액티브(클릭) 반응 */
+.milkdown-mermaid-toggle-btn:active {
+  transform: scale(0.97);
+}
+
+/* 실제 머메이드 SVG 다이어그램이 출력되는 메인 뷰 */
+.milkdown-mermaid-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  overflow-x: auto;
+  padding: 12px 0 6px;
+}
+
+/* 렌더링된 SVG 이미지 반응형 설정 */
+.milkdown-mermaid-preview svg {
+  max-width: 100% !important;
+  height: auto !important;
+  background: transparent !important;
+}
+
+/* 머메이드 코드 문법 오류 시 표시되는 에러 알림 패널 */
+.milkdown-mermaid-error {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px dashed var(--danger);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background-color: rgba(209, 67, 67, 0.04);
+  color: var(--danger);
+  font-family: inherit;
+  text-align: left;
+}
+
+/* 에러 상단 제목 영역 */
+.milkdown-mermaid-error .error-title {
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 상세 에러 원인 표기 로그 영역 */
+.milkdown-mermaid-error .error-details {
+  margin: 0;
+  padding: 10px;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.02);
+  font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow: auto;
+}
+
+

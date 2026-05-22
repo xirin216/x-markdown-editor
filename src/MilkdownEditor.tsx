@@ -46,6 +46,7 @@ import { createTable } from "@milkdown/kit/preset/gfm";
 import { $remark, replaceAll } from "@milkdown/kit/utils";
 import { normalizeSerializedMarkdown } from "./markdown";
 import { milkdownHtmlPreview } from "./milkdownHtmlPreview";
+import { milkdownMermaid } from "./milkdownMermaid";
 
 type MilkdownEditorProps = {
   value: string;
@@ -294,6 +295,7 @@ function MilkdownEditorInner({
       },
     });
     crepe.editor.use(milkdownHtmlPreview);
+    crepe.editor.use(milkdownMermaid);
     crepe.editor.use(obsidianLineBreakRemarkPlugin);
     crepe.editor.config((ctx) => {
       const bullet = preferredBulletMarkerRef.current;
